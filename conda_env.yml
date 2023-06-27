@@ -2,18 +2,21 @@ name: dbc
 channels:
   - defaults
 dependencies:
-  - python=3.6
-  - pytorch
-  - torchvision
-  - cudatoolkit=9.2
+  - python=3.9
+  - pytorch=1.12.1=gpu_cuda113py39h19ae3d8_1
+  - torchvision=0.13.1=cpu_py39h164cc8f_0
+  # - cudatoolkit
   - absl-py
   - pyparsing
+  - pip
   - pip:
+    - mujoco
     - termcolor
-    - git+git://github.com/deepmind/dm_control.git
-    - git+git://github.com/1nadequacy/dmc2gym.git
+    # - dm_control
+    - git+https://github.com/deepmind/dm_control.git
+    - git+https://github.com/denisyarats/dmc2gym.git
     - opencv-python
-    - pillow==6.1
+    - pillow==9.4.0
     - scikit-image
     - scikit-video
     - tb-nightly

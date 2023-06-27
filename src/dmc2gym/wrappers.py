@@ -12,7 +12,7 @@ from dmc2gym import natural_imgsource
 def _spec_to_box(spec):
     def extract_min_max(s):
         assert s.dtype == np.float64 or s.dtype == np.float32
-        dim = np.int(np.prod(s.shape))
+        dim = int(np.prod(s.shape))
         if type(s) == specs.Array:
             bound = np.inf * np.ones(dim, dtype=np.float32)
             return -bound, bound
@@ -181,7 +181,9 @@ class DMCWrapper(core.Env):
                 break
         obs = self._get_obs(time_step)
         extra['discount'] = time_step.discount
-        return obs, reward, done, extra
+        # TODO: How should truncated vs terminated be handled?
+        truncated = terminated = done
+        return obs, reward, truncated, terminated, extra
 
     def reset(self):
         time_step = self._env.reset()

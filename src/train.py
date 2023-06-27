@@ -20,7 +20,7 @@ from video import VideoRecorder
 from agent.baseline_agent import BaselineAgent
 from agent.bisim_agent import BisimAgent
 from agent.deepmdp_agent import DeepMDPAgent
-from agents.navigation.carla_env import CarlaEnv
+# from agents.navigation.carla_env import CarlaEnv
 
 
 def parse_args():
@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument('--img_source', default=None, type=str, choices=['color', 'noise', 'images', 'video', 'none'])
     parser.add_argument('--total_frames', default=1000, type=int)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=1000000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=10000, type=int)
     # train
     parser.add_argument('--agent', default='bisim', type=str, choices=['baseline', 'bisim', 'deepmdp'])
     parser.add_argument('--init_steps', default=1000, type=int)
@@ -123,7 +123,10 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
                     values.append(min(agent.critic(torch.Tensor(obs).to(device).unsqueeze(0), torch.Tensor(action).to(device).unsqueeze(0))).item())
                     embeddings.append(agent.critic.encoder(torch.Tensor(obs).unsqueeze(0).to(device)).cpu().detach().numpy())
 
-            obs, reward, done, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
+            # TODO: Should done=truncated or terminated?
+            done = terminated
+
 
             # metrics:
             if do_carla_metrics:
@@ -401,7 +404,9 @@ def main():
                 agent.update(replay_buffer, L, step)
 
         curr_reward = reward
-        next_obs, reward, done, _ = env.step(action)
+        next_obs, reward, terminated, truncated, _ = env.step(action)
+        # TODO: Should done be terminated or truncated?
+        done = terminated
 
         # allow infinit bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(

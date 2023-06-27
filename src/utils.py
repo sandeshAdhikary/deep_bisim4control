@@ -174,9 +174,16 @@ class FrameStack(gym.Wrapper):
         return self._get_obs()
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(action)
+        out = self.env.step(action)
+        # TODO: How should truncated vs terminated be handled?
+        if len(out) == 4:
+            obs, reward, done, info = out
+            truncated = terminated = done
+        elif len(out) == 5:
+            obs, reward, truncated, terminated, info = out
+            done = terminated
         self._frames.append(obs)
-        return self._get_obs(), reward, done, info
+        return self._get_obs(), reward,  truncated, terminated, info
 
     def _get_obs(self):
         assert len(self._frames) == self._k
