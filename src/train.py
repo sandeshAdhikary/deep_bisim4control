@@ -21,6 +21,7 @@ from agent.baseline_agent import BaselineAgent
 from agent.bisim_agent import BisimAgent
 from agent.deepmdp_agent import DeepMDPAgent
 # from agents.navigation.carla_env import CarlaEnv
+from tqdm import trange
 
 
 def parse_args():
@@ -72,6 +73,11 @@ def parse_args():
     parser.add_argument('--decoder_weight_lambda', default=0.0, type=float)
     parser.add_argument('--num_layers', default=4, type=int)
     parser.add_argument('--num_filters', default=32, type=int)
+    parser.add_argument('--encoder_mode', default='spectral', choices=['spectral', 'dbc'])
+    parser.add_argument('--encoder_kernel_bandwidth', default='auto')
+    parser.add_argument('--encoder_normalize_loss', default=True, action='store_true')
+    parser.add_argument('--encoder_ortho_loss_reg', default=1e-4, type=float)
+
     # sac
     parser.add_argument('--discount', default=0.99, type=float)
     parser.add_argument('--init_temperature', default=0.01, type=float)
@@ -227,7 +233,10 @@ def make_agent(obs_shape, action_shape, args, device):
             transition_model_type=args.transition_model_type,
             num_layers=args.num_layers,
             num_filters=args.num_filters,
-            bisim_coef=args.bisim_coef
+            bisim_coef=args.bisim_coef,
+            encoder_kernel_bandwidth=args.encoder_kernel_bandwidth,
+            encoder_normalize_loss=args.encoder_normalize_loss,
+            encoder_ortho_loss_reg=args.encoder_ortho_loss_reg
         )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
@@ -360,7 +369,8 @@ def main():
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
-    for step in range(args.num_train_steps):
+    prog_bar = trange(args.num_train_steps, desc="Training")
+    for step in prog_bar:
         if done:
             if args.decoder_type == 'inverse':
                 for i in range(1, args.k):  # fill k_obs with 0s if episode is done
@@ -371,7 +381,7 @@ def main():
                 L.dump(step)
 
             # evaluate agent periodically
-            if episode % args.eval_freq == 0:
+            if episode % args.eval_freq == 0 and episode > 0:
                 L.log('eval/episode', episode, step)
                 evaluate(eval_env, agent, video, args.num_eval_episodes, L, step)
                 if args.save_model:
@@ -400,8 +410,9 @@ def main():
         # run training update
         if step >= args.init_steps:
             num_updates = args.init_steps if step == args.init_steps else 1
-            for _ in range(num_updates):
+            for idu in range(num_updates):
                 agent.update(replay_buffer, L, step)
+                prog_bar.set_description_str(f"Training: Update: {idu+1}/{num_updates}")
 
         curr_reward = reward
         next_obs, reward, terminated, truncated, _ = env.step(action)

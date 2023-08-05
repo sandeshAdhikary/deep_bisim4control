@@ -48,7 +48,11 @@ class BisimAgent(object):
         decoder_weight_lambda=0.0,
         num_layers=4,
         num_filters=32,
-        bisim_coef=0.5
+        bisim_coef=0.5,
+        encoder_mode='spectral',
+        encoder_kernel_bandwidth='auto',
+        encoder_normalize_loss=True,
+        encoder_ortho_loss_reg=1e-3
     ):
         self.device = device
         self.discount = discount
@@ -60,6 +64,11 @@ class BisimAgent(object):
         self.decoder_latent_lambda = decoder_latent_lambda
         self.transition_model_type = transition_model_type
         self.bisim_coef = bisim_coef
+
+        self.encoder_mode = encoder_mode
+        self.encoder_kernel_bandwidth = encoder_kernel_bandwidth
+        self.encoder_normalize_loss = encoder_normalize_loss
+        self.encoder_ortho_loss_reg = encoder_ortho_loss_reg
 
         self.actor = Actor(
             obs_shape, action_shape, hidden_dim, encoder_type,
@@ -200,7 +209,16 @@ class BisimAgent(object):
         alpha_loss.backward()
         self.log_alpha_optimizer.step()
 
+
     def update_encoder(self, obs, action, reward, L, step):
+        if self.encoder_mode == 'dbc':
+            return self.update_encoder_dbc(obs, action, reward, L, step)
+        elif self.encoder_mode == 'spectral':
+            return self.update_encoder_spectral(obs, action, reward, L, step)
+        else:
+            raise ValueError(f'Invalid encoder mode {self.encoder_mode}')
+
+    def update_encoder_dbc(self, obs, action, reward, L, step):
         h = self.critic.encoder(obs)            
 
         # Sample random states across episodes at random
@@ -234,11 +252,60 @@ class BisimAgent(object):
                 (pred_next_latent_sigma1 - pred_next_latent_sigma2).pow(2)
             )
             # transition_dist  = F.smooth_l1_loss(pred_next_latent_mu1, pred_next_latent_mu2, reduction='none') \
-            #     +  F.smooth_l1_loss(pred_next_latent_sigma1, pred_next_latent_sigma2, reduction='none')
+                # +  F.smooth_l1_loss(pred_next_latent_sigma1, pred_next_latent_sigma2, reduction='none')
 
         bisimilarity = r_dist + self.discount * transition_dist
         loss = (z_dist - bisimilarity).pow(2).mean()
         L.log('train_ae/encoder_loss', loss, step)
+        return loss
+
+
+    def update_encoder_spectral(self, obs, action, reward, L, step):
+        h = self.critic.encoder(obs)            
+
+        # Sample random states across episodes at random
+        batch_size = obs.size(0)
+
+        with torch.no_grad():
+            pred_next_latent_mu1, pred_next_latent_sigma1 = self.transition_model(torch.cat([h, action], dim=1))
+
+        # Get bi-sim distances
+        r_dist = torch.cdist(reward, reward, p=1) # shape (B,B)
+        if self.transition_model_type == '':
+            transition_dist = torch.cdist(pred_next_latent_mu1, pred_next_latent_mu1, p=1) # shape (B,B)
+        else:
+            raise NotImplementedError
+        bisimilarity = r_dist + self.discount*transition_dist # shape (B,B)
+
+        # Get kernel/weights matrix
+        kernel_bandwidth = self.encoder_kernel_bandwidth
+        if kernel_bandwidth == 'auto':
+            nu = 1./(2*(torch.median(bisimilarity)*2))
+        else:
+            nu = 1./(2*(kernel_bandwidth**2))
+        L.log('train_ae/kernel_bandwidth', nu, step)
+        W = torch.exp(-nu*(bisimilarity)**2) # shape (B,B)
+
+        if self.encoder_normalize_loss:
+            D = torch.sum(W, dim=1)
+            h = h / D[:, None]
+
+        Dh = torch.cdist(h, h, p=2)
+        loss = torch.sum(W * Dh.pow(2)) / (batch_size**2)
+        L.log('train_ae/dist_loss', loss.item(), step)
+
+        # Add orthogonality loss
+        if self.encoder_ortho_loss_reg > 0:    
+            D = torch.diag(torch.sum(W, dim=1))
+            est = (h.T @ D @ h)
+            ortho_loss = (est - torch.eye(h.shape[1]).to(h.device))**2
+            # ortho_loss = (((Y.T@Y)*(1/Y.shape[0]) - th.eye(Y.shape[1]).to(Y.device))**2)
+            ortho_loss = ortho_loss.sum()/(h.shape[1])
+            loss = loss + self.encoder_ortho_loss_reg*ortho_loss
+            L.log('train_ae/ortho_loss', ortho_loss, step)
+
+        L.log('train_ae/encoder_loss', loss, step)
+        
         return loss
 
     def update_transition_reward_model(self, obs, action, next_obs, reward, L, step):
