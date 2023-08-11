@@ -137,8 +137,43 @@ class PixelEncoderCarla098(PixelEncoder):
         self.outputs = dict()
 
 
+class VectorEncoder(nn.Module):
+    """
+    Simple NN (non-convolutional) encoder for observations
+    """
+    def __init__(self, obs_shape, feature_dim, num_layers=None, num_filters=None, stride=None):
+        super().__init__()
+
+        assert len(obs_shape) == 1
+
+        self.input_shape = obs_shape[0]
+        self.feature_dim = feature_dim
+        # self.num_layers = num_layers
+
+        self.fc = nn.Sequential(
+            nn.Linear(self.input_shape, 4*self.input_shape),
+            nn.ReLU(),
+            nn.Linear(4*self.input_shape, 128),
+            nn.ReLU(),
+            nn.Linear(128, self.feature_dim),
+        )
+        self.ln = nn.LayerNorm(self.feature_dim)
+
+        self.outputs = dict()
+
+
+    def forward(self, obs, detach=False):
+        return self.ln(self.fc(obs))
+    
+    def copy_conv_weights_from(self, source):
+        pass
+
+    def log(self, L, step, log_freq):
+        pass
+
+
 class IdentityEncoder(nn.Module):
-    def __init__(self, obs_shape, feature_dim, num_layers, num_filters):
+    def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride):
         super().__init__()
 
         assert len(obs_shape) == 1
@@ -157,7 +192,8 @@ class IdentityEncoder(nn.Module):
 _AVAILABLE_ENCODERS = {'pixel': PixelEncoder,
                        'pixelCarla096': PixelEncoderCarla096,
                        'pixelCarla098': PixelEncoderCarla098,
-                       'identity': IdentityEncoder}
+                       'identity': IdentityEncoder,
+                       'vector': VectorEncoder}
 
 
 def make_encoder(

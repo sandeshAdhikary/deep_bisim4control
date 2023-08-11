@@ -123,7 +123,7 @@ class Logger(object):
     def _try_sw_log_image(self, key, image, step):
         if self._sw is not None:
             assert image.dim() == 3
-            grid = torchvision.utils.make_grid(image.unsqueeze(1))
+            grid = torchvision.utils.make_grid(image.unsqueeze(0))
             self._sw.add_image(key, grid, step)
 
     def _try_sw_log_video(self, key, frames, step):

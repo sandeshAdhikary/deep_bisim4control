@@ -22,7 +22,8 @@ from agent.bisim_agent import BisimAgent
 from agent.deepmdp_agent import DeepMDPAgent
 # from agents.navigation.carla_env import CarlaEnv
 from tqdm import trange
-
+from envs.gridworld import make_gridworld
+from envs.gridworld.callbacks import GridWorldEvalCallback
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -37,7 +38,7 @@ def parse_args():
     parser.add_argument('--img_source', default=None, type=str, choices=['color', 'noise', 'images', 'video', 'none'])
     parser.add_argument('--total_frames', default=1000, type=int)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=10000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=10_000, type=int)
     # train
     parser.add_argument('--agent', default='bisim', type=str, choices=['baseline', 'bisim', 'deepmdp'])
     parser.add_argument('--init_steps', default=1000, type=int)
@@ -62,7 +63,7 @@ def parse_args():
     parser.add_argument('--actor_log_std_max', default=2, type=float)
     parser.add_argument('--actor_update_freq', default=2, type=int)
     # encoder/decoder
-    parser.add_argument('--encoder_type', default='pixel', type=str, choices=['pixel', 'pixelCarla096', 'pixelCarla098', 'identity'])
+    parser.add_argument('--encoder_type', default='pixel', type=str, choices=['pixel', 'pixelCarla096', 'pixelCarla098', 'identity', 'vector'])
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--encoder_lr', default=1e-3, type=float)
     parser.add_argument('--encoder_tau', default=0.005, type=float)
@@ -77,6 +78,7 @@ def parse_args():
     parser.add_argument('--encoder_kernel_bandwidth', default='auto')
     parser.add_argument('--encoder_normalize_loss', default=True, action='store_true')
     parser.add_argument('--encoder_ortho_loss_reg', default=1e-4, type=float)
+    parser.add_argument('--reward_decoder_num_rews', default=1, type=int)
 
     # sac
     parser.add_argument('--discount', default=0.99, type=float)
@@ -116,6 +118,10 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
         dist_driven_this_episode = 0.
 
         obs = env.reset()
+        if len(obs) == 2:
+            # env.reset() can output (obs,info) tuple
+            assert isinstance(obs[1], dict)
+            obs = obs[0]
         video.init(enabled=(i == 0))
         done = False
         episode_reward = 0
@@ -131,7 +137,7 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
 
             obs, reward, terminated, truncated, info = env.step(action)
             # TODO: Should done=truncated or terminated?
-            done = terminated
+            done = truncated or terminated
 
 
             # metrics:
@@ -236,7 +242,9 @@ def make_agent(obs_shape, action_shape, args, device):
             bisim_coef=args.bisim_coef,
             encoder_kernel_bandwidth=args.encoder_kernel_bandwidth,
             encoder_normalize_loss=args.encoder_normalize_loss,
-            encoder_ortho_loss_reg=args.encoder_ortho_loss_reg
+            encoder_ortho_loss_reg=args.encoder_ortho_loss_reg,
+            encoder_mode=args.encoder_mode,
+            reward_decoder_num_rews=args.reward_decoder_num_rews
         )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
@@ -297,8 +305,29 @@ def main():
             port=args.port
         )
         # TODO: implement env.seed(args.seed) ?
-
         eval_env = env
+        eval_callback = None
+    elif args.domain_name == 'gridworld':
+        size = 20
+        env = make_gridworld(
+            domain_name=args.domain_name,
+            task_name=args.task_name,
+            from_pixels=(args.encoder_type == 'pixel'),
+            seed=args.seed,
+            height=args.image_size,
+            width=args.image_size,
+            size=size
+        )
+        eval_env = make_gridworld(
+            domain_name=args.domain_name,
+            task_name=args.task_name,
+            from_pixels=(args.encoder_type == 'pixel'),
+            seed=args.seed + 1,
+            height=args.image_size,
+            width=args.image_size,
+            size=size
+        )
+        eval_callback = GridWorldEvalCallback()
     else:
         env = dmc2gym.make(
             domain_name=args.domain_name,
@@ -328,11 +357,15 @@ def main():
             width=args.image_size,
             frame_skip=args.action_repeat
         )
+        eval_callback = None
 
     # stack several consecutive frames together
     if args.encoder_type.startswith('pixel'):
         env = utils.FrameStack(env, k=args.frame_stack)
         eval_env = utils.FrameStack(eval_env, k=args.frame_stack)
+
+    if eval_callback is not None:
+        eval_callback.set_env(eval_env)
 
     utils.make_dir(args.work_dir)
     video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
@@ -347,8 +380,9 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # the dmc2gym wrapper standardizes actions
-    assert env.action_space.low.min() >= -1
-    assert env.action_space.high.max() <= 1
+    if isinstance(env.action_space, gym.spaces.box.Box):
+        assert env.action_space.low.min() >= -1
+        assert env.action_space.high.max() <= 1
 
     replay_buffer = utils.ReplayBuffer(
         obs_shape=env.observation_space.shape,
@@ -388,10 +422,16 @@ def main():
                     agent.save(model_dir, step)
                 if args.save_buffer:
                     replay_buffer.save(buffer_dir)
+                if eval_callback is not None:
+                    eval_callback(agent, L, step)
 
             L.log('train/episode_reward', episode_reward, step)
 
             obs = env.reset()
+            if len(obs) == 2:
+                # env.reset() can output (obs,info) tuple
+                assert isinstance(obs[1], dict)
+                obs = obs[0]
             done = False
             episode_reward = 0
             episode_step = 0
@@ -417,10 +457,14 @@ def main():
         curr_reward = reward
         next_obs, reward, terminated, truncated, _ = env.step(action)
         # TODO: Should done be terminated or truncated?
-        done = terminated
-
+        done = truncated or terminated
         # allow infinit bootstrap
-        done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
+        try:
+            max_ep_steps = env._max_episode_steps
+        except AttributeError as e:
+            max_ep_steps = env.max_episode_steps
+
+        done_bool = 0 if episode_step + 1 == max_ep_steps else float(
             done
         )
         episode_reward += reward

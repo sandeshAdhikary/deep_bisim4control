@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import utils
 from sac_ae import  Actor, Critic, LOG_FREQ
 from transition_model import make_transition_model
-
+from sklearn.cluster import MiniBatchKMeans, KMeans
 
 class BisimAgent(object):
     """Bisimulation metric algorithm."""
@@ -52,7 +52,8 @@ class BisimAgent(object):
         encoder_mode='spectral',
         encoder_kernel_bandwidth='auto',
         encoder_normalize_loss=True,
-        encoder_ortho_loss_reg=1e-3
+        encoder_ortho_loss_reg=1e-3,
+        reward_decoder_num_rews=1
     ):
         self.device = device
         self.discount = discount
@@ -92,11 +93,31 @@ class BisimAgent(object):
             transition_model_type, encoder_feature_dim, action_shape
         ).to(device)
 
-        self.reward_decoder = nn.Sequential(
-            nn.Linear(encoder_feature_dim, 512),
-            nn.LayerNorm(512),
-            nn.ReLU(),
-            nn.Linear(512, 1)).to(device)
+        self.reward_decoder_num_rews = reward_decoder_num_rews
+        assert self.reward_decoder_num_rews > 0
+        if self.reward_decoder_num_rews == 1:
+            # Only network outputting single reward
+            self.reward_decoder = nn.Sequential(
+                nn.Linear(encoder_feature_dim, 512),
+                nn.LayerNorm(512),
+                nn.ReLU(),
+                nn.Linear(512, 1)).to(device)
+        else:
+            self.reward_decoder = nn.ModuleList(
+                [nn.Sequential(
+                    nn.Linear(1, 8),
+                    nn.LayerNorm(8),
+                    nn.ReLU(),
+                    nn.Linear(8, 1),
+                    ).to(device) for _ in range(encoder_feature_dim)
+                ]
+            )
+            self.reward_decoder_clusterer = MiniBatchKMeans(n_clusters=self.reward_decoder_num_rews, 
+                                                            init="k-means++", 
+                                                            n_init="auto",
+                                                            batch_size=512,
+                                                            random_state=123)
+            self.reward_decoder_centroids = None
 
         # tie encoders between actor and critic
         self.actor.encoder.copy_conv_weights_from(self.critic.encoder)
@@ -138,6 +159,42 @@ class BisimAgent(object):
         self.training = training
         self.actor.train(training)
         self.critic.train(training)
+
+    def decode_reward(self, features, next_features=None, sum=True):
+        if self.reward_decoder_num_rews == 1:
+            return self.reward_decoder(features).view(-1,1)
+        else:
+            assert next_features is not None
+            # Update centroids if they don't exist
+            if self.reward_decoder_centroids is None:
+                self._update_reward_decoder_centroids(next_features)
+            # Features for the rewarder are distances to centroids
+            rew_features = torch.cdist(next_features, self.reward_decoder_centroids, p=2)
+            rew_features = torch.exp(-rew_features**2)
+            # Get individual sub-rewards
+            rew = []
+            for idr in range(self.reward_decoder_num_rews):
+                rew.append(self.reward_decoder[idr](rew_features[:,idr].view(-1,1)))
+            rew = torch.stack(rew).permute((1,0,2))
+            rew = rew.sum(dim=1) if sum else rew.squeeze(-1)# (B,N)
+            return rew
+
+    def _update_reward_decoder_centroids(self, features, reset=False):
+        with torch.no_grad():
+            if reset:
+                # Reset the clusterer
+                init = "k-means++" if self.reward_decoder_centroids is None else self.reward_decoder_centroids.detach().cpu().numpy()
+                self.reward_decoder_clusterer = MiniBatchKMeans(n_clusters=self.reward_decoder_num_rews, 
+                                                                init=init, 
+                                                                n_init="auto",
+                                                                batch_size=features.size(0),
+                                                                random_state=123)
+            
+            # Update centroids
+            self.reward_decoder_clusterer.partial_fit(features.detach().cpu().numpy())
+            self.reward_decoder_centroids = torch.from_numpy(self.reward_decoder_clusterer.cluster_centers_).to(features.device)
+
+
 
     @property
     def alpha(self):
@@ -229,7 +286,7 @@ class BisimAgent(object):
         with torch.no_grad():
             # action, _, _, _ = self.actor(obs, compute_pi=False, compute_log_pi=False)
             pred_next_latent_mu1, pred_next_latent_sigma1 = self.transition_model(torch.cat([h, action], dim=1))
-            # reward = self.reward_decoder(pred_next_latent_mu1)
+            # reward = self.decode_rewards(pred_next_latent_mu1)
             reward2 = reward[perm]
         if pred_next_latent_sigma1 is None:
             pred_next_latent_sigma1 = torch.zeros_like(pred_next_latent_mu1)
@@ -268,23 +325,26 @@ class BisimAgent(object):
 
         with torch.no_grad():
             pred_next_latent_mu1, pred_next_latent_sigma1 = self.transition_model(torch.cat([h, action], dim=1))
+        
+        with torch.no_grad():
 
-        # Get bi-sim distances
-        r_dist = torch.cdist(reward, reward, p=1) # shape (B,B)
-        if self.transition_model_type == '':
-            transition_dist = torch.cdist(pred_next_latent_mu1, pred_next_latent_mu1, p=1) # shape (B,B)
-        else:
-            raise NotImplementedError
-        bisimilarity = r_dist + self.discount*transition_dist # shape (B,B)
+            # Get bi-sim distances
+            r_dist = torch.cdist(reward, reward, p=1) # shape (B,B)
+            if self.transition_model_type == '':
+                transition_dist = torch.cdist(pred_next_latent_mu1, pred_next_latent_mu1, p=1) # shape (B,B)
+            else:
+                raise NotImplementedError
+            bisimilarity = r_dist + self.discount*transition_dist # shape (B,B)
 
-        # Get kernel/weights matrix
-        kernel_bandwidth = self.encoder_kernel_bandwidth
-        if kernel_bandwidth == 'auto':
-            nu = 1./(2*(torch.median(bisimilarity)*2))
-        else:
-            nu = 1./(2*(kernel_bandwidth**2))
-        L.log('train_ae/kernel_bandwidth', nu, step)
-        W = torch.exp(-nu*(bisimilarity)**2) # shape (B,B)
+        
+            # Get kernel/weights matrix
+            kernel_bandwidth = self.encoder_kernel_bandwidth
+            if kernel_bandwidth == 'auto':
+                nu = 1./(2*(torch.median(bisimilarity)*2))
+            else:
+                nu = 1./(2*(kernel_bandwidth**2))
+            L.log('train_ae/kernel_bandwidth', nu, step)
+            W = torch.exp(-nu*(bisimilarity)**2) # shape (B,B)
 
         if self.encoder_normalize_loss:
             D = torch.sum(W, dim=1)
@@ -319,11 +379,21 @@ class BisimAgent(object):
         loss = torch.mean(0.5 * diff.pow(2) + torch.log(pred_next_latent_sigma))
         L.log('train_ae/transition_loss', loss, step)
 
-        pred_next_latent = self.transition_model.sample_prediction(torch.cat([h, action], dim=1))
-        pred_next_reward = self.reward_decoder(pred_next_latent)
-        reward_loss = F.mse_loss(pred_next_reward, reward)
-        total_loss = loss + reward_loss
-        return total_loss
+        # Predict next reward from next latent
+        # pred_next_latent = self.transition_model.sample_prediction(torch.cat([h, action], dim=1))
+        # pred_next_reward = self.decode_reward(pred_next_latent)
+        # reward_loss = F.mse_loss(pred_next_reward, reward)
+        # loss = loss + reward_loss
+        # L.log('train_ae/reward_loss', reward_loss, step)    
+
+        # Predict reward directly from latent and action
+        pred_reward = self.decode_reward(h, next_features=next_h)
+        # pred_reward = self.decode_reward(h.detach(), next_features=next_h.detach())
+        reward_loss = F.mse_loss(pred_reward, reward)
+        loss = loss + reward_loss
+        L.log('train_ae/reward_loss', reward_loss, step)
+
+        return loss
 
     def update(self, replay_buffer, L, step):
         obs, action, _, reward, next_obs, not_done = replay_buffer.sample()
@@ -339,6 +409,12 @@ class BisimAgent(object):
         total_loss.backward()
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
+        
+        # Update the decoder's cluster (if applicable)
+        if hasattr(self, 'reward_decoder_clusterer'):
+            features = self.critic.encoder(obs)
+            reset_clusterer = (step % 800 == 0)
+            self._update_reward_decoder_centroids(features, reset=reset_clusterer)
 
         if step % self.actor_update_freq == 0:
             self.update_actor_and_alpha(obs, L, step)

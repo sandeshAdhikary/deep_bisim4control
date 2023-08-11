@@ -26,3 +26,5 @@ dependencies:
     - pygame
     - networkx
     - dotmap
+    - einops
+    - matplotlib
