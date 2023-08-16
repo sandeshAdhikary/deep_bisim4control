@@ -86,6 +86,9 @@ class GridWorldEvalCallback():
         heatmap = torch.from_numpy(heatmap)
         logger.log_image('eval/cluster_labels', heatmap, step)
 
+        # Get reward grads
+        self.log_rew_grads(agent, obs.to(torch.float32), logger, step)
+
         self.env.env.env.env.env.random_init = orig_random_init
 
     def get_heatmaps(self, indices, values, color_mode='continuous'):
@@ -114,3 +117,55 @@ class GridWorldEvalCallback():
         heatmap_overlay = np.array(heatmap_overlay)
         heatmap_overlay = heatmap_overlay.transpose(2,0,1)
         return heatmap_overlay
+    
+    def log_rew_grads(self, agent, obs, logger, step):
+        num_batches = obs.shape[0]
+        # Get sub-reward predictions
+        obs.requires_grad = True
+        features = agent.critic.encoder(obs) # (Ep*N, d)
+        # Get cluster labels
+        cluster_labels = torch.cdist(features, agent.reward_decoder_centroids, p=2)
+        cluster_labels = torch.exp(-cluster_labels**2) # (Ep*N, d)
+        sub_rews = []
+        sub_rew_grads = []
+        for idr in range(agent.reward_decoder_num_rews):
+            obs.grad = None
+            pred_rew = agent.reward_decoder[idr](cluster_labels[:,idr].view(-1,1))
+            pred_rew.sum(dim=0).backward(retain_graph=True)
+            sub_rew_grads.append(obs.grad)
+            sub_rews.append(pred_rew)
+
+        sub_rews = torch.stack(sub_rews).permute((1,0,2)).squeeze(-1) # (EP*N, num_rews)
+        sub_rew_grads = torch.stack(sub_rew_grads) # (r, ep*n, c, h, w)
+        num_frames = self.env.__dict__['_k']
+        # Stack frames along width
+        sub_rew_grads = rearrange(sub_rew_grads, 'r B (f c) h w -> r B c h (f w)', f=num_frames) # (ep*n, r, c, h, w)
+
+
+        # Plot the gradients
+        # Normalize gradients. Then map to [0,255]
+        sub_rew_grads = sub_rew_grads.detach().cpu().abs()
+        sub_rew_grads = sub_rew_grads.sum(axis=2, keepdim=True).numpy() # Sum over the channels
+        normalizers = sub_rew_grads.max(axis=(1,2,3,4)) # Max over all but reward dim
+        # normalizers = np.clip(normalizers, a_min=1e-8, a_max=None)# Prevent division by 0
+        sub_rew_grads = sub_rew_grads/ normalizers[:,None,None,None,None]
+        num_rews = sub_rew_grads.shape[0]
+        sub_rew_grads = rearrange(sub_rew_grads, 'r B c h w -> B (r h) w c') # Stack sub-rewards along the 
+        sub_rew_grads = sub_rew_grads*255.0
+        sub_rew_grads = sub_rew_grads.repeat(3, axis=-1) # Repeat for RGB channels
+
+
+        # Blend the heatmap over the render image
+        bgd_imgs = obs.detach().cpu().numpy() # (B, (f c), h , w)
+        bgd_imgs = bgd_imgs[None,:,:,:,:].repeat(num_rews, axis=0) # Add a sub-reward dim
+        bgd_imgs = rearrange(bgd_imgs, 'r B (f c) h w -> B (r h) (f w) c', f=num_frames) # stack frames -> width, sub-rews -> height
+        
+        bgd_imgs = rearrange(bgd_imgs, 'B h w c -> (B h) w c')
+        sub_rew_grads = rearrange(sub_rew_grads, 'B h w c -> (B h) w c')
+        sub_rew_grads = Image.fromarray(sub_rew_grads.astype(np.uint8), mode='RGB')
+        bgd_imgs = Image.fromarray(bgd_imgs.astype(np.uint8), mode='RGB')
+
+        plot_imgs = Image.blend(bgd_imgs, sub_rew_grads, 0.8)
+        plot_imgs = rearrange(np.array(plot_imgs), '(B h) w c -> B c h w', B=num_batches)
+        
+        logger.log_video(f'eval/sub_rew_grads', plot_imgs, step)

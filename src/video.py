@@ -32,12 +32,16 @@ class VideoRecorder(object):
 
     def record(self, env):
         if self.enabled:
-            frame = env.render(
-                mode='rgb_array',
-                height=self.height,
-                width=self.width,
-                camera_id=self.camera_id
-            )
+            try:
+                frame = env.render(
+                    mode='rgb_array',
+                    height=self.height,
+                    width=self.width,
+                    camera_id=self.camera_id
+                )
+            except TypeError:
+                assert env.render_mode == 'rgb_array'
+                frame = env.render()
             if self._bg_source:
                 mask = np.logical_and((frame[:, :, 2] > frame[:, :, 1]), (frame[:, :, 2] > frame[:, :, 0]))  # hardcoded for dmc
                 bg = self._bg_source.get_image()

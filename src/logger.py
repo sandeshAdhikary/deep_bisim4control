@@ -13,6 +13,7 @@ import torch
 import torchvision
 import numpy as np
 from termcolor import colored
+import wandb
 
 FORMAT_CONFIG = {
     'rl': {
@@ -96,45 +97,68 @@ class MetersGroup(object):
         self._dump_to_console(data, prefix)
         self._meters.clear()
 
-
 class Logger(object):
-    def __init__(self, log_dir, use_tb=True, config='rl'):
-        self._log_dir = log_dir
-        if use_tb:
-            tb_dir = os.path.join(log_dir, 'tb')
+    def __init__(self, config=None):
+        # log_dir, sw='tensorboard', 
+
+        self._log_dir = config['log_dir']
+
+        format_config = config.get('format_config', 'rl')
+
+        self.sw_type = config.get('sw', None) # Summary writer
+        if self.sw_type == 'tensorboard':
+            tb_dir = os.path.join(self._log_dir, 'tb')
             if os.path.exists(tb_dir):
                 shutil.rmtree(tb_dir)
             self._sw = SummaryWriter(tb_dir)
+        elif self.sw_type == 'wandb':
+            # wandb.login()
+            project = config.get('project', 'bisim_project')
+            tracked_params = config.get('tracked_params', {})
+            self._sw = wandb.init(project=project, dir=self._log_dir, config=tracked_params)
+            # pass
         else:
             self._sw = None
+
         self._train_mg = MetersGroup(
-            os.path.join(log_dir, 'train.log'),
-            formating=FORMAT_CONFIG[config]['train']
+            os.path.join(self._log_dir, 'train.log'),
+            formating=FORMAT_CONFIG[format_config]['train']
         )
         self._eval_mg = MetersGroup(
-            os.path.join(log_dir, 'eval.log'),
-            formating=FORMAT_CONFIG[config]['eval']
+            os.path.join(self._log_dir, 'eval.log'),
+            formating=FORMAT_CONFIG[format_config]['eval']
         )
 
     def _try_sw_log(self, key, value, step):
-        if self._sw is not None:
+        if self.sw_type == 'tensorboard':
             self._sw.add_scalar(key, value, step)
+        elif self.sw_type == 'wandb':
+            self._sw.log({key: value}, step=step)
 
     def _try_sw_log_image(self, key, image, step):
-        if self._sw is not None:
+        if self.sw_type == 'tensorboard':
             assert image.dim() == 3
             grid = torchvision.utils.make_grid(image.unsqueeze(0))
             self._sw.add_image(key, grid, step)
+        elif self.sw_type == 'wandb':
+            self._sw.log({key: [wandb.Image(image)]}, step=step)
 
     def _try_sw_log_video(self, key, frames, step):
-        if self._sw is not None:
+        if self.sw_type == 'tensorboard':
             frames = torch.from_numpy(np.array(frames))
             frames = frames.unsqueeze(0)
             self._sw.add_video(key, frames, step, fps=30)
+        elif self.sw_type == 'wandb':
+            self._sw.log({key: wandb.Video(frames, fps=30)}, step=step)
 
     def _try_sw_log_histogram(self, key, histogram, step):
-        if self._sw is not None:
+        if self.sw_type == 'tensorboard':
             self._sw.add_histogram(key, histogram, step)
+        elif self.sw_type == 'wandb':
+            histogram_np = histogram
+            if isinstance(histogram, torch.Tensor):
+                histogram_np = histogram.detach().cpu().numpy()
+            self._sw.log({key: wandb.Histogram(histogram_np)}, step=step)
 
     def log(self, key, value, step, n=1):
         assert key.startswith('train') or key.startswith('eval')

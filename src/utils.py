@@ -12,6 +12,12 @@ import os
 from collections import deque
 import random
 
+import io
+import matplotlib.pyplot as plt
+from PIL import Image
+from einops import rearrange
+# import logging
+# logging.getLogger('matplotlib.font_manager').disabled = True
 
 class eval_mode(object):
     def __init__(self, *models):
@@ -195,3 +201,22 @@ class FrameStack(gym.Wrapper):
     def _get_obs(self):
         assert len(self._frames) == self._k
         return np.concatenate(list(self._frames), axis=0)
+
+
+def plot_to_array(figure, image_mode='hwc'):
+  """Converts the matplotlib plot specified by 'figure' to a PNG image and
+  returns it. The supplied figure is closed and inaccessible after this call."""
+  # Save the plot to a PNG in memory.
+  buf = io.BytesIO()
+  plt.savefig(buf, format='jpg')
+  # Closing the figure prevents it from being displayed directly inside
+  # the notebook.
+  plt.close(figure)
+  buf.seek(0)
+  # Convert PNG buffer to TF image
+  image = Image.open(buf)
+  # Add the batch dimension
+  image = np.array(image)
+  if image_mode =='chw':
+      image = rearrange(image, 'h w c -> c h w')
+  return image

@@ -20,8 +20,9 @@ from video import VideoRecorder
 from agent.baseline_agent import BaselineAgent
 from agent.bisim_agent import BisimAgent
 from agent.deepmdp_agent import DeepMDPAgent
-# from agents.navigation.carla_env import CarlaEnv
 from tqdm import trange
+from envs.reacher import make_reacher
+from envs.reacher.callbacks import ReacherEvalCallback
 from envs.gridworld import make_gridworld
 from envs.gridworld.callbacks import GridWorldEvalCallback
 
@@ -95,6 +96,7 @@ def parse_args():
     parser.add_argument('--transition_model_type', default='', type=str, choices=['', 'deterministic', 'probabilistic', 'ensemble'])
     parser.add_argument('--render', default=False, action='store_true')
     parser.add_argument('--port', default=2000, type=int)
+    parser.add_argument('--logger', default='tensorboard', type=str, choices=['tensorboard', 'wandb'])
     args = parser.parse_args()
     return args
 
@@ -328,6 +330,24 @@ def main():
             size=size
         )
         eval_callback = GridWorldEvalCallback()
+    elif args.domain_name == 'reacher':
+        env = make_reacher(
+            domain_name=args.domain_name,
+            task_name=args.task_name,
+            from_pixels=(args.encoder_type == 'pixel'),
+            seed=args.seed,
+            height=args.image_size,
+            width=args.image_size
+        )
+        eval_env = make_reacher(
+            domain_name=args.domain_name,
+            task_name=args.task_name,
+            from_pixels=(args.encoder_type == 'pixel'),
+            seed=args.seed +1,
+            height=args.image_size,
+            width=args.image_size
+        )
+        eval_callback = ReacherEvalCallback()
     else:
         env = dmc2gym.make(
             domain_name=args.domain_name,
@@ -399,7 +419,20 @@ def main():
         device=device
     )
 
-    L = Logger(args.work_dir, use_tb=args.save_tb)
+    # Set up logger
+    if args.logger == 'tensorboard':
+        logger_config = {'log_dir': args.work_dir,
+                         'sw': 'tensorboard', 
+                         'format_config': 'rl'
+                         }
+    elif args.logger == 'wandb':
+        logger_config = {'log_dir': args.work_dir,
+                         'sw': 'wandb',
+                         'project': 'bisim_project',
+                         'tracked_params': args.__dict__
+                         }
+
+    L = Logger(logger_config)
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
