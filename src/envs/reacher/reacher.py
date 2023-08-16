@@ -4,13 +4,13 @@ from typing import TypeVar
 from os import path
 
 import numpy as np
+from gym.envs.mujoco.reacher_v4 import ReacherEnv
+from gym.envs.mujoco import MujocoEnv
 from gymnasium import utils
-from gymnasium.envs.mujoco import MujocoEnv
-from gymnasium.envs.mujoco.reacher_v4 import ReacherEnv
-from gymnasium.spaces import Box, Discrete
+from gym.spaces import Box, Discrete
 from copy import copy
-from src.utils.mo_gym_utils import LinearRewardWeightedVec
-from src.utils.gym_utils import TransposeObservation
+from PIL import Image
+from einops import rearrange
 
 DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0}
 
@@ -18,42 +18,7 @@ DEFAULT_CAMERA_CONFIG = {"trackbodyid": 0}
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
-gym.envs.register(
-    id='MORandomReacherEnv-v0',
-    entry_point='src.envs.reacher.reacher:MORandomReacherEnv',
-    # max_episode_steps=1_000,
-)
-
-
-def create_reacher_env(config):
-    """
-    Create an instance of the MO-reacher environment with the given config
-    """
-    # base_env = mogym.make('mo-reacher-v4', render_mode='rgb_array')
-    model_path = path.join(ROOT_DIR, 'src/envs/reacher/mo_reacher.xml')
-    base_env = mogym.make('MORandomReacherEnv-v0', 
-                          max_episode_steps=config['max_steps'],
-                          render_mode='rgb_array',
-                          model_path=model_path,
-                          frame_skip=config['frame_skip'],
-                          img_size=config['img_size'],
-                          )
-    if config.get('img_observations'):
-        # Get Image observations
-        base_env = MOReacherImgObsWrapper(base_env)
-        # Resize the image observations
-        base_env = gym.wrappers.ResizeObservation(base_env, config['img_size'])
-        # Transpose image observations from (h,w,c) -> (c,h,w)
-        base_env = TransposeObservation(base_env)
-    # Linearize the reward
-    reward_weights = np.array(config['reward_weights']).astype(np.float32)
-    if reward_weights.sum() > 0:
-        reward_weights /= reward_weights.sum() # Make sure weights are normalized
-    base_env = LinearRewardWeightedVec(base_env, weight=reward_weights)
-    return base_env
-
-
-class MORandomReacherEnv(ReacherEnv):
+class MOReacher(ReacherEnv):
     """
     ## Description
     Mujoco version of `mo-reacher-v0`, based on [`Reacher-v4` environment](https://gymnasium.farama.org/environments/mujoco/reacher/).
@@ -65,7 +30,7 @@ class MORandomReacherEnv(ReacherEnv):
     - (x,y,z) co-ordinates of the 4 targets
 
     ## Action Space
-    The action space is discrete and contains the 3^2=9 possible actions based on applying positive (+1), negative (-1) or zero (0) torque to each of the two joints.
+    # 2-dimensional continuos action specifying torque [-1,1] on each of the two joints
 
     ## Reward Space
     The reward is 4-dimensional and is defined based on the distance of the tip of the arm and the four target locations.
@@ -75,13 +40,15 @@ class MORandomReacherEnv(ReacherEnv):
     ```
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, config, **kwargs):
         utils.EzPickle.__init__(self, **kwargs)
 
-        model_path = kwargs.pop('model_path')
-        width = height = kwargs.pop('img_size')
-        frame_skip = kwargs.pop('frame_skip')
-
+        model_path = config.get('model_path')
+        width = height = config.get('img_size', 256)
+        frame_skip = config.get('frame_skip', 2)
+        self.max_episode_steps = config.get('max_episode_steps', 100)
+        self.goal_weights = config.get('goal_weights', [-1.0, 1.0, 0.0, 0.0])
+        
 
         self.observation_space = Box(low=-np.inf, high=np.inf, shape=(18,), dtype=np.float64)
         
@@ -92,22 +59,20 @@ class MORandomReacherEnv(ReacherEnv):
             model_path,
             frame_skip,
             observation_space=self.observation_space,
-            default_camera_config=DEFAULT_CAMERA_CONFIG,
+            # default_camera_config=DEFAULT_CAMERA_CONFIG,
             width=width,
             height=height,
             **kwargs,
         )
-        actions = [-1.0, 0.0, 1.0]
-        self.action_dict = dict()
-        for a1 in actions:
-            for a2 in actions:
-                self.action_dict[len(self.action_dict)] = (a1, a2)
-        self.action_space = Discrete(9)
+        self.action_space = Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         # Target goals: x1, y1, x2, y2, ... x4, y4
         self.orig_goal = np.array([0.14, 0.0, -0.14, 0.0, 0.0, 0.14, 0.0, -0.14])
         self.goal = copy(self.orig_goal)
         self.reward_space = Box(low=-np.inf, high=np.inf, shape=(4,))
         self.reward_dim = 4
+
+        self.render_mode = 'rgb_array'
+        
 
     @property
     def _default_model_path(self):
@@ -115,23 +80,8 @@ class MORandomReacherEnv(ReacherEnv):
 
 
     def step(self, a):
-        real_action = self.action_dict[int(a)]
-        vec_reward = np.array(
-            [
-                1 - 4 * np.linalg.norm(self.get_body_com("fingertip")[:2] - self.get_body_com("target1")[:2]),
-                1 - 4 * np.linalg.norm(self.get_body_com("fingertip")[:2] - self.get_body_com("target2")[:2]),
-                1 - 4 * np.linalg.norm(self.get_body_com("fingertip")[:2] - self.get_body_com("target3")[:2]),
-                1 - 4 * np.linalg.norm(self.get_body_com("fingertip")[:2] - self.get_body_com("target4")[:2]),
-            ],
-            dtype=np.float32,
-        )
-
-        self._step_mujoco_simulation(real_action, self.frame_skip)
-        if self.render_mode == "human":
-            self.render()
-
-        ob = self._get_obs()
-
+        self.num_steps += 1
+        real_action = np.clip(a, self.action_space.low/2., self.action_space.high/2.)
 
         target_dists = np.array(
             [
@@ -142,16 +92,30 @@ class MORandomReacherEnv(ReacherEnv):
             ],
             dtype=np.float32,
         )
+        vec_reward = 1- 4*target_dists
+
+        self._step_mujoco_simulation(real_action, self.frame_skip)
+        if self.render_mode == "human":
+            self.render()
+
+        ob = self._get_obs()
+
         info = {
             'fingertip_pos' : self.get_body_com("fingertip")[:2].astype(np.float32),
             'target_dists': target_dists
             }
+        
+        scalar_reward = np.dot(self.goal_weights, vec_reward)
+
+        truncated = self.num_steps >= self.max_episode_steps
+
+        terminated = False
 
         return (
             ob,
-            vec_reward,
-            False,
-            False,
+            scalar_reward,
+            terminated,
+            truncated,
             info,
         )
 
@@ -167,6 +131,7 @@ class MORandomReacherEnv(ReacherEnv):
         qvel = self.init_qvel + self.np_random.uniform(low=-0.005, high=0.005, size=self.model.nv)
         qvel[-2:] = 0
         self.set_state(qpos, qvel)
+        self.num_steps = 0
         return self._get_obs()
 
     def _get_obs(self):
@@ -183,14 +148,37 @@ class MORandomReacherEnv(ReacherEnv):
         return ob
 
 
-class MOReacherImgObsWrapper(gym.ObservationWrapper):
-    def __init__(self, env: gym.Env) -> None:
-        if env.render_mode != "rgb_array":
-            assert f"The render_mode must be rbg_array but it is {env.render_mode}"
-        self.num_channels = 3
-        super().__init__(env)
-        self.observation_space = gym.spaces.Box(high=255, low=0, shape=(480, 480, 3), dtype='uint8')
-    
-    def observation(self, observation: ObsType) -> ObsType:
-        return self.env.render()
+class MOReacherRGB(gym.ObservationWrapper):
+    def __init__(self, config) -> None:
+        super().__init__(env=MOReacher(config))
+        self.img_size = config.get('img_size', 84)
+        self.img_mode = config.get('img_mode', 'CHW')
 
+        if self.img_mode == 'CHW':
+            obs_shape = (3, self.img_size, self.img_size)
+        elif self.img_mode == 'HWC':
+            obs_shape = (self.img_size, self.img_size, 3)
+        else:
+            raise ValueError(f"Invalid image mode {self.img_mode}")
+
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=obs_shape, dtype=np.uint8)
+    
+    
+    def observation(self, observation):
+        return self.get_obs()
+
+    def get_obs(self):
+        # Return the RGB array of the grid
+        obs = self.render()
+        obs = self.resize_obs(obs)
+        if self.img_mode == 'CHW':
+            obs = rearrange(obs, 'h w c -> c h w')
+        return obs
+
+    def resize_obs(self, obs):
+        """
+        Resize the observations if needed
+        """
+        if obs.shape[0] == obs.shape[1] == self.img_size:
+            return obs
+        return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size)))

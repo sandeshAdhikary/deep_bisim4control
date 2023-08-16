@@ -343,7 +343,7 @@ class BisimAgent(object):
                 nu = 1./(2*(torch.median(bisimilarity)*2))
             else:
                 nu = 1./(2*(kernel_bandwidth**2))
-            L.log('train_ae/kernel_bandwidth', nu, step)
+            L.log('train_ae/kernel_nu', nu, step)
             W = torch.exp(-nu*(bisimilarity)**2) # shape (B,B)
 
         if self.encoder_normalize_loss:
@@ -413,7 +413,8 @@ class BisimAgent(object):
         # Update the decoder's cluster (if applicable)
         if hasattr(self, 'reward_decoder_clusterer'):
             features = self.critic.encoder(obs)
-            reset_clusterer = (step % 800 == 0)
+            reset_clusterer = False
+            # reset_clusterer = (step % 800 == 0)
             self._update_reward_decoder_centroids(features, reset=reset_clusterer)
 
         if step % self.actor_update_freq == 0:
