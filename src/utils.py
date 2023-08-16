@@ -19,6 +19,7 @@ from einops import rearrange
 # import logging
 # logging.getLogger('matplotlib.font_manager').disabled = True
 
+
 class eval_mode(object):
     def __init__(self, *models):
         self.models = models

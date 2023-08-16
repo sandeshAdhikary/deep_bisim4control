@@ -16,6 +16,7 @@ import dmc2gym
 import utils
 from logger import Logger
 from video import VideoRecorder
+from types import SimpleNamespace
 
 from agent.baseline_agent import BaselineAgent
 from agent.bisim_agent import BisimAgent
@@ -97,6 +98,7 @@ def parse_args():
     parser.add_argument('--render', default=False, action='store_true')
     parser.add_argument('--port', default=2000, type=int)
     parser.add_argument('--logger', default='tensorboard', type=str, choices=['tensorboard', 'wandb'])
+    parser.add_argument('--logger_project', default='bisim_exp', type=str)
     args = parser.parse_args()
     return args
 
@@ -114,7 +116,7 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
     obses = []
     values = []
     embeddings = []
-
+    episode_rewards = []
     for i in range(num_episodes):
         # carla metrics:
         dist_driven_this_episode = 0.
@@ -160,6 +162,7 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
 
         video.save('%d.mp4' % step)
         L.log('eval/episode_reward', episode_reward, step)
+        episode_rewards.append(episode_reward)
 
     if embed_viz_dir:
         dataset = {'obs': obses, 'values': values, 'embeddings': embeddings}
@@ -176,6 +179,7 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
         print('brake: {}'.format(brake / count))
         print('---------------------------------')
 
+    return np.median(episode_rewards)
 
 def make_agent(obs_shape, action_shape, args, device):
     if args.agent == 'baseline':
@@ -291,8 +295,15 @@ def make_agent(obs_shape, action_shape, args, device):
     return agent
 
 
-def main():
-    args = parse_args()
+def run_train(args=None):
+
+    if args is not None:
+        assert isinstance(args, (SimpleNamespace, dict))
+        if isinstance(args, dict):
+            args = SimpleNamespace(**args)
+    else:
+        args = parse_args()
+
     utils.set_seed_everywhere(args.seed)
 
     if args.domain_name == 'carla':
@@ -428,10 +439,9 @@ def main():
     elif args.logger == 'wandb':
         logger_config = {'log_dir': args.work_dir,
                          'sw': 'wandb',
-                         'project': 'bisim_project',
+                         'project': args.logger_project,
                          'tracked_params': args.__dict__
                          }
-
     L = Logger(logger_config)
 
     episode, episode_reward, done = 0, 0, True
@@ -507,6 +517,14 @@ def main():
 
         obs = next_obs
         episode_step += 1
+    
+    # Evaluate after training end
+    avg_ep_reward = evaluate(env, agent, video, args.num_eval_episodes, L, step, device=None, embed_viz_dir=None, do_carla_metrics=None)
+    
+    # Close logger
+    L.finish()
+
+    return avg_ep_reward
 
 
 def collect_data(env, agent, num_rollouts, path_length, checkpoint_path):
@@ -539,4 +557,4 @@ def collect_data(env, agent, num_rollouts, path_length, checkpoint_path):
 
 
 if __name__ == '__main__':
-    main()
+    run_train()

@@ -192,3 +192,7 @@ class Logger(object):
     def dump(self, step):
         self._train_mg.dump(step, 'train')
         self._eval_mg.dump(step, 'eval')
+
+    def finish(self):
+        if self.sw_type == 'wandb':
+            self._sw.finish()
