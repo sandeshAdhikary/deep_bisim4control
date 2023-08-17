@@ -95,6 +95,7 @@ class BisimAgent(object):
 
         self.reward_decoder_num_rews = reward_decoder_num_rews
         assert self.reward_decoder_num_rews > 0
+        self.reward_decoder_centroids = None
         if self.reward_decoder_num_rews == 1:
             # Only network outputting single reward
             self.reward_decoder = nn.Sequential(
@@ -117,7 +118,6 @@ class BisimAgent(object):
                                                             n_init="auto",
                                                             batch_size=512,
                                                             random_state=123)
-            self.reward_decoder_centroids = None
 
         # tie encoders between actor and critic
         self.actor.encoder.copy_conv_weights_from(self.critic.encoder)

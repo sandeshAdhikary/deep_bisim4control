@@ -30,3 +30,5 @@ dependencies:
     - matplotlib
     - wandb
     - optuna
+    - mo_gymnasium
+    - scikit-learn
