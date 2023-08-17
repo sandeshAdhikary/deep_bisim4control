@@ -32,3 +32,4 @@ dependencies:
     - optuna
     - mo_gymnasium
     - scikit-learn
+    - moviepy
