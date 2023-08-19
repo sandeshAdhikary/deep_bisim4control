@@ -28,7 +28,7 @@ class VideoRecorder(object):
 
     def init(self, enabled=True):
         self.frames = []
-        self.enabled = self.dir_name is not None and enabled
+        self.enabled = enabled
 
     def record(self, env):
         if self.enabled:
@@ -49,6 +49,6 @@ class VideoRecorder(object):
             self.frames.append(frame)
 
     def save(self, file_name):
-        if self.enabled:
+        if self.dir_name is not None and self.enabled:
             path = os.path.join(self.dir_name, file_name)
             imageio.mimsave(path, self.frames, fps=self.fps)

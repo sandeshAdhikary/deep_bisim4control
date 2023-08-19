@@ -3,6 +3,8 @@ import yaml
 import optuna
 from functools import partial
 import os
+from optuna.integration.wandb import WeightsAndBiasesCallback
+
 
 def objective(trial, hyperparams_config, log_dir):
     # config = yaml.safe_load(open(hyperparams_config['base_config'], 'r'))
@@ -33,8 +35,14 @@ def objective(trial, hyperparams_config, log_dir):
 
 
 if __name__ == "__main__":
-    hyperparam_config_file = 'tune_hyperparams_config.yaml'
-    hyperparams_config = yaml.safe_load(open(hyperparam_config_file, 'r'))
+    import argparse
+
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--config', type=str, help="Path to hyperparams config file")
+    args = argparser.parse_args()
+
+    # hyperparam_config_file = 'tune_hyperparams_config.yaml
+    hyperparams_config = yaml.safe_load(open(args.config, 'r'))
     project_name = hyperparams_config['project_name']
     log_dir = os.path.join(hyperparams_config['log_dir'], project_name)
     if not os.path.exists(log_dir):
@@ -42,9 +50,26 @@ if __name__ == "__main__":
 
     partial_objective = partial(objective, hyperparams_config=hyperparams_config, log_dir=log_dir)
 
-    study_storage_file = os.path.join(log_dir, "tuning_results.db")
+    study_storage_folder = os.path.join(hyperparams_config['study_storage_dir'], project_name)
+    if not os.path.exists(study_storage_folder):
+        os.makedirs(study_storage_folder)
+    study_storage_file = os.path.join(study_storage_folder, "optuna.db")
+    
+    # Set the sampler
+    sampler_type = hyperparams_config['sampler']
+    if sampler_type == 'random':
+        sampler = optuna.samplers.RandomSampler(seed=123)
+    elif sampler_type == 'tpe':
+        sampler = optuna.samplers.TPESampler(seed=123)
+    else:
+        raise ValueError("Unknown Sampler")
+
     study = optuna.create_study(direction='maximize', 
                                 study_name=project_name,
                                 storage=f"sqlite:///{study_storage_file}",
                                 load_if_exists=True)
-    study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'])
+    
+    # Set up tracking callback with wandb
+    wandbc = WeightsAndBiasesCallback(wandb_kwargs={"project": project_name,})
+
+    study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'], callbacks=[wandbc])

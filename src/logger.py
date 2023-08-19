@@ -14,6 +14,7 @@ import torchvision
 import numpy as np
 from termcolor import colored
 import wandb
+from einops import rearrange
 
 FORMAT_CONFIG = {
     'rl': {
@@ -135,20 +136,27 @@ class Logger(object):
         elif self.sw_type == 'wandb':
             self._sw.log({key: value}, step=step)
 
-    def _try_sw_log_image(self, key, image, step):
+    def _try_sw_log_image(self, key, image, step, image_mode='hwc'):
         if self.sw_type == 'tensorboard':
             assert image.dim() == 3
             grid = torchvision.utils.make_grid(image.unsqueeze(0))
             self._sw.add_image(key, grid, step)
         elif self.sw_type == 'wandb':
+            if image_mode == 'chw':
+                image = rearrange(image, 'c h w -> h w c')
+            if torch.is_tensor(image):
+                image = image.detach().cpu().numpy()
             self._sw.log({key: [wandb.Image(image)]}, step=step)
 
-    def _try_sw_log_video(self, key, frames, step):
+    def _try_sw_log_video(self, key, frames, step, image_mode='hwc'):
         if self.sw_type == 'tensorboard':
             frames = torch.from_numpy(np.array(frames))
             frames = frames.unsqueeze(0)
             self._sw.add_video(key, frames, step, fps=30)
         elif self.sw_type == 'wandb':
+            frames = np.array(frames)
+            if image_mode == 'hwc':
+                frames = rearrange(frames, 't h w c -> t c h w')
             self._sw.log({key: wandb.Video(frames, fps=30)}, step=step)
 
     def _try_sw_log_histogram(self, key, histogram, step):
@@ -177,9 +185,9 @@ class Logger(object):
             if hasattr(param.bias, 'grad') and param.bias.grad is not None:
                 self.log_histogram(key + '_b_g', param.bias.grad.data, step)
 
-    def log_image(self, key, image, step):
+    def log_image(self, key, image, step, image_mode='hwc'):
         assert key.startswith('train') or key.startswith('eval')
-        self._try_sw_log_image(key, image, step)
+        self._try_sw_log_image(key, image, step, image_mode)
 
     def log_video(self, key, frames, step):
         assert key.startswith('train') or key.startswith('eval')

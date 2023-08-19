@@ -13,18 +13,10 @@ services:
               count: 1
               capabilities: [gpu]
     environment:
-      # - DISPLAY=$DISPLAY
-      # - XAUTHORITY=$XAUTH
-      # - SDL_VIDEODRIVER=X11
       - MUJOCO_GL=egl
     volumes: 
-      - configdata:/config
+      - configdata:/optuna_storage
       - $PWD/src:/src
-      # - $XSOCK:$XSOCK
-      # - $XAUTH:$XAUTH
-      # - $PWD/src:/src
-      # - configdata:/config
-    # network_mode: host
 volumes:
   configdata:
     driver: rclone

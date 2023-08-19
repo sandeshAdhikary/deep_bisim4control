@@ -22,6 +22,7 @@ class ReacherEvalCallback():
             self._spectral_call(agent, logger, step)
 
     def _spectral_call(self, agent, logger, step):
+
         if agent.reward_decoder_centroids is None:
             return None
         

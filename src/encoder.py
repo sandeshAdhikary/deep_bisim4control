@@ -3,10 +3,10 @@
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
+import numpy as np
 import torch
 import torch.nn as nn
-
+from sklearn.cluster import MiniBatchKMeans, KMeans
 
 def tie_weights(src, trg):
     assert type(src) == type(trg)
@@ -189,11 +189,112 @@ class IdentityEncoder(nn.Module):
         pass
 
 
+##### Encoder with clusters
+class ClusterEncoder(nn.Module):
+    def __init__(self, encoder, num_clusters, batch_size, seed=123):
+        """
+        Wrapper around an encoder that adds a final clustering layer
+        The output of the original encoder is provided to the clusterer
+        to yield a final feature (with num_clusters dimensions) of soft
+        cluster assignments
+        """
+        super().__init__()
+        self._encoder = encoder
+        self.parent_attr = "Parent's attribute"
+        self.num_clusters = num_clusters
+        self.batch_size = batch_size
+        self.seed = seed
+        self.clusterer = MiniBatchKMeans(n_clusters = num_clusters,
+                                         init='k-means++',
+                                         n_init='auto',
+                                         batch_size=batch_size,
+                                         random_state=seed
+                                         )
+        self.centroids = self._init_centroids()
+
+    def _init_centroids(self):
+        return torch.rand((self.num_clusters, self._encoder.feature_dim))
+                                
+
+
+    def forward(self, obs, detach=False):
+        h = self._encoder(obs, detach)
+        features = torch.cdist(h, self.centroids.to(obs.device), p=2)
+        features = torch.exp(-features**2)
+        return features
+
+    def update_centroids(self, features, reset=False):
+        with torch.no_grad():
+            if reset:
+                # Reset the clusterer; initialize at earlier centroids
+                self.clusterer = MiniBatchKMeans(n_clusters = self.num_clusters,
+                                    init=self.centroids,
+                                    n_init='auto',
+                                    batch_size=self.batch_size,
+                                    random_state=self.seed
+                                    )
+            # Update centroids
+            self.clusterer.partial_fit(features.detach().cpu().numpy())
+            self.centroids = torch.from_numpy(self.clusterer.cluster_centers_).to(features.device)
+
+    def __getattr__(self, name):
+        if '_parameters' in self.__dict__:
+            _parameters = self.__dict__['_parameters']
+            if name in _parameters:
+                return _parameters[name]
+        if '_buffers' in self.__dict__:
+            _buffers = self.__dict__['_buffers']
+            if name in _buffers:
+                return _buffers[name]
+        if '_modules' in self.__dict__:
+            modules = self.__dict__['_modules']
+            if name in modules:
+                return modules[name]
+        
+        # Get attribute from child-encoder
+        if hasattr(self._encoder, name):
+            return getattr(self._encoder, name)
+
+        raise AttributeError("'{}' object has no attribute '{}'".format(
+            type(self).__name__, name))
+
+class ClusterPixelEncoder(ClusterEncoder):
+    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None, num_clusters=3, batch_size=128, seed=123):
+        encoder = PixelEncoder(obs_shape, feature_dim, num_layers, num_filters, stride)
+        super().__init__(encoder, num_clusters, batch_size, seed=seed)
+
+class ClusterPixelEncoderCarla096(ClusterEncoder):
+    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None, num_clusters=3, batch_size=128, seed=123):
+        encoder = PixelEncoderCarla096(obs_shape, feature_dim, num_layers, num_filters, stride)
+        super().__init__(encoder, num_clusters, batch_size, seed=seed)
+
+class ClusterPixelEncoderCarla098(ClusterEncoder):
+    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None, num_clusters=3, batch_size=128, seed=123):
+        encoder = PixelEncoderCarla098(obs_shape, feature_dim, num_layers, num_filters, stride)
+        super().__init__(encoder, num_clusters, batch_size, seed=seed)
+
+class ClusterIdentityEncoder(ClusterEncoder):
+    def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride, num_clusters=3, batch_size=128, seed=123):
+        encoder = IdentityEncoder(obs_shape, feature_dim, num_layers, num_filters, stride)
+        super().__init__(encoder, num_clusters, batch_size, seed=seed)
+
+class ClusterVectorEncoder(ClusterEncoder):
+    def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride, num_clusters=3, batch_size=128, seed=123):
+        encoder = VectorEncoder(obs_shape, feature_dim, num_layers, num_filters, stride)
+        super().__init__(encoder, num_clusters, batch_size, seed=seed)
+
+
 _AVAILABLE_ENCODERS = {'pixel': PixelEncoder,
+                       'pixel_cluster': ClusterPixelEncoder,
                        'pixelCarla096': PixelEncoderCarla096,
+                       'pixelCarla096_cluster': ClusterPixelEncoderCarla096,
                        'pixelCarla098': PixelEncoderCarla098,
+                       'pixelCarla098_cluster': ClusterPixelEncoderCarla098,
                        'identity': IdentityEncoder,
-                       'vector': VectorEncoder}
+                       'identity_cluster': ClusterIdentityEncoder,
+                       'vector': VectorEncoder,
+                       'vector_cluster': ClusterVectorEncoder
+                       }
 
 
 def make_encoder(

@@ -81,7 +81,7 @@ class MOReacher(ReacherEnv):
 
     def step(self, a):
         self.num_steps += 1
-        real_action = np.clip(a, self.action_space.low/2., self.action_space.high/2.)
+        real_action = np.clip(a, self.action_space.low, self.action_space.high)
 
         target_dists = np.array(
             [

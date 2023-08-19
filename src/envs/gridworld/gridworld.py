@@ -369,3 +369,4 @@ class GridWorldRGB(gym.ObservationWrapper):
         if obs.shape[0] == obs.shape[1] == self.img_size:
             return obs
         return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size)))
+    

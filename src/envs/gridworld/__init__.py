@@ -13,6 +13,7 @@ def make_gridworld(
         height=84,
         width=84,
         size=10,
+        sparse_rewards=True,
         environment_kwargs=None
 ):
     env_id = f'{domain_name}-{task_name}-v1'
@@ -29,7 +30,7 @@ def make_gridworld(
         'obstacles': obstacles,
         'goal_weights': goal_weights,
         'obstacle_weights': obstacle_weights,
-        'reward_mode': 'sparse',
+        'reward_mode': 'sparse' if sparse_rewards else 'dense',
         'seed': seed,
         'max_episode_steps': max_episode_steps,
         'img_size': height,

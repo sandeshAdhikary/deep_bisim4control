@@ -26,6 +26,7 @@ from envs.reacher import make_reacher
 from envs.reacher.callbacks import ReacherEvalCallback
 from envs.gridworld import make_gridworld
 from envs.gridworld.callbacks import GridWorldEvalCallback
+from envs.distractor_wrappers import DistractorWrapper
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -39,6 +40,7 @@ def parse_args():
     parser.add_argument('--eval_resource_files', type=str)
     parser.add_argument('--img_source', default=None, type=str, choices=['color', 'noise', 'images', 'video', 'none'])
     parser.add_argument('--total_frames', default=1000, type=int)
+    parser.add_argument('--distractor', default='None', choices=['ideal_gas'])
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=10_000, type=int)
     # train
@@ -65,7 +67,10 @@ def parse_args():
     parser.add_argument('--actor_log_std_max', default=2, type=float)
     parser.add_argument('--actor_update_freq', default=2, type=int)
     # encoder/decoder
-    parser.add_argument('--encoder_type', default='pixel', type=str, choices=['pixel', 'pixelCarla096', 'pixelCarla098', 'identity', 'vector'])
+    parser.add_argument('--encoder_type', default='pixel', type=str, choices=[
+        'pixel', 'pixelCarla096', 'pixelCarla098', 'identity', 'vector',
+        'pixel_cluster', 'pixelCarla096_cluster', 'pixelCarla098_cluster', 'identity_cluster', 'vector_cluster'
+        ])
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--encoder_lr', default=1e-3, type=float)
     parser.add_argument('--encoder_tau', default=0.005, type=float)
@@ -161,6 +166,8 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
             distance_driven_each_episode.append(dist_driven_this_episode)
 
         video.save('%d.mp4' % step)
+        if len(video.frames) > 0:
+            L.log_video('eval/video', video.frames, step)
         L.log('eval/episode_reward', episode_reward, step)
         episode_rewards.append(episode_reward)
 
@@ -250,7 +257,7 @@ def make_agent(obs_shape, action_shape, args, device):
             encoder_normalize_loss=args.encoder_normalize_loss,
             encoder_ortho_loss_reg=args.encoder_ortho_loss_reg,
             encoder_mode=args.encoder_mode,
-            reward_decoder_num_rews=args.reward_decoder_num_rews
+            reward_decoder_num_rews=args.reward_decoder_num_rews,
         )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
@@ -325,7 +332,7 @@ def run_train(args=None):
         env = make_gridworld(
             domain_name=args.domain_name,
             task_name=args.task_name,
-            from_pixels=(args.encoder_type == 'pixel'),
+            from_pixels=args.encoder_type.startswith('pixel'),
             seed=args.seed,
             height=args.image_size,
             width=args.image_size,
@@ -334,7 +341,7 @@ def run_train(args=None):
         eval_env = make_gridworld(
             domain_name=args.domain_name,
             task_name=args.task_name,
-            from_pixels=(args.encoder_type == 'pixel'),
+            from_pixels=args.encoder_type.startswith('pixel'),
             seed=args.seed + 1,
             height=args.image_size,
             width=args.image_size,
@@ -345,7 +352,7 @@ def run_train(args=None):
         env = make_reacher(
             domain_name=args.domain_name,
             task_name=args.task_name,
-            from_pixels=(args.encoder_type == 'pixel'),
+            from_pixels=args.encoder_type.startswith('pixel'),
             seed=args.seed,
             height=args.image_size,
             width=args.image_size
@@ -353,7 +360,7 @@ def run_train(args=None):
         eval_env = make_reacher(
             domain_name=args.domain_name,
             task_name=args.task_name,
-            from_pixels=(args.encoder_type == 'pixel'),
+            from_pixels=args.encoder_type.startswith('pixel'),
             seed=args.seed +1,
             height=args.image_size,
             width=args.image_size
@@ -368,7 +375,7 @@ def run_train(args=None):
             total_frames=args.total_frames,
             seed=args.seed,
             visualize_reward=False,
-            from_pixels=(args.encoder_type == 'pixel'),
+            from_pixels=args.encoder_type.startswith('pixel'),
             height=args.image_size,
             width=args.image_size,
             frame_skip=args.action_repeat
@@ -383,12 +390,21 @@ def run_train(args=None):
             total_frames=args.total_frames,
             seed=args.seed,
             visualize_reward=False,
-            from_pixels=(args.encoder_type == 'pixel'),
+            from_pixels=args.encoder_type.startswith('pixel'),
             height=args.image_size,
             width=args.image_size,
             frame_skip=args.action_repeat
         )
         eval_callback = None
+
+    if args.distractor in ['ideal_gas']:
+        distractor_kwargs = {
+            'num_bodies': 10,
+            'num_dimensions': 2,
+        }
+        env = DistractorWrapper(env, distractor_kwargs)
+        eval_env = DistractorWrapper(eval_env, distractor_kwargs)
+
 
     # stack several consecutive frames together
     if args.encoder_type.startswith('pixel'):
