@@ -18,7 +18,6 @@ RUN apt-get update \
 
 # Set up working directory
 WORKDIR $HOME
-COPY src/ src/
 COPY conda_env.yaml .
     
 # Install Miniconda

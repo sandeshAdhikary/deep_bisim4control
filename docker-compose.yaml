@@ -1,7 +1,6 @@
-version: "2"
+version: "3"
 services:
   bisim:
-    # build: .
     image: ghcr.io/sandeshadhikary/bisim:latest
     stdin_open: true
     tty: true
@@ -13,23 +12,6 @@ services:
               count: 1
               capabilities: [gpu]
     environment:
-      # - DISPLAY=$DISPLAY
-      # - XAUTHORITY=$XAUTH
-      # - SDL_VIDEODRIVER=X11
       - MUJOCO_GL=egl
     volumes: 
-      - configdata:/config
       - $PWD/src:/src
-      # - $XSOCK:$XSOCK
-      # - $XAUTH:$XAUTH
-      # - $PWD/src:/src
-      # - configdata:/config
-    # network_mode: host
-volumes:
-  configdata:
-    driver: rclone
-    driver_opts:
-      remote: 'GDrive:bisim'
-      allow_other: 'true'
-      vfs_cache_mode: full
-      poll_interval: 0

@@ -1,18 +1,19 @@
 name: dbc
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python=3.9
   - pytorch=1.12.1=gpu_cuda113py39h19ae3d8_1
   - torchvision=0.13.1=cpu_py39h164cc8f_0
-  # - cudatoolkit
   - absl-py
   - pyparsing
+  # For Optuna
+  - mysqlclient
   - pip
   - pip:
     - mujoco
     - termcolor
-    # - dm_control
     - git+https://github.com/deepmind/dm_control.git
     - git+https://github.com/denisyarats/dmc2gym.git
     - opencv-python
@@ -24,7 +25,6 @@ dependencies:
     - imageio
     - imageio-ffmpeg
     - pygame
-    - networkx
     - dotmap
     - einops
     - matplotlib

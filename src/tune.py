@@ -49,11 +49,6 @@ if __name__ == "__main__":
         os.makedirs(log_dir)
 
     partial_objective = partial(objective, hyperparams_config=hyperparams_config, log_dir=log_dir)
-
-    study_storage_folder = os.path.join(hyperparams_config['study_storage_dir'], project_name)
-    if not os.path.exists(study_storage_folder):
-        os.makedirs(study_storage_folder)
-    study_storage_file = os.path.join(study_storage_folder, "optuna.db")
     
     # Set the sampler
     sampler_type = hyperparams_config['sampler']
@@ -64,9 +59,11 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unknown Sampler")
 
+
+
     study = optuna.create_study(direction='maximize', 
                                 study_name=project_name,
-                                storage=f"sqlite:///{study_storage_file}",
+                                storage=hyperparams_config['study_storage_url'],
                                 load_if_exists=True)
     
     # Set up tracking callback with wandb
