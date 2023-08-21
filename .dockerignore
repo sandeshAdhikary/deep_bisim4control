@@ -1,0 +1,14 @@
+src/tuning_results
+src/saved_results
+src/video
+src/wandb
+src/tb
+src/log
+
+*.pyc
+*.npy
+*.csv
+*.mp4
+*.png
+
+*/__pycache__/

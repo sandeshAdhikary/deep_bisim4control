@@ -16,7 +16,7 @@ def tie_weights(src, trg):
 
 class PixelEncoder(nn.Module):
     """Convolutional encoder of pixels observations."""
-    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None):
+    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None, **kwargs):
         super().__init__()
 
         assert len(obs_shape) == 3
@@ -92,7 +92,7 @@ class PixelEncoder(nn.Module):
 
 class PixelEncoderCarla096(PixelEncoder):
     """Convolutional encoder of pixels observations."""
-    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1):
+    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1, **kwargs):
         super(PixelEncoder, self).__init__()
 
         assert len(obs_shape) == 3
@@ -115,7 +115,7 @@ class PixelEncoderCarla096(PixelEncoder):
 
 class PixelEncoderCarla098(PixelEncoder):
     """Convolutional encoder of pixels observations."""
-    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1):
+    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1, **kwargs):
         super(PixelEncoder, self).__init__()
 
         assert len(obs_shape) == 3
@@ -141,7 +141,7 @@ class VectorEncoder(nn.Module):
     """
     Simple NN (non-convolutional) encoder for observations
     """
-    def __init__(self, obs_shape, feature_dim, num_layers=None, num_filters=None, stride=None):
+    def __init__(self, obs_shape, feature_dim, num_layers=None, num_filters=None, stride=None, **kwargs):
         super().__init__()
 
         assert len(obs_shape) == 1
@@ -173,7 +173,7 @@ class VectorEncoder(nn.Module):
 
 
 class IdentityEncoder(nn.Module):
-    def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride):
+    def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride, **kwargs):
         super().__init__()
 
         assert len(obs_shape) == 1
@@ -201,7 +201,7 @@ class ClusterEncoder(nn.Module):
         super().__init__()
         self._encoder = encoder
         self.parent_attr = "Parent's attribute"
-        self.num_clusters = num_clusters
+        self.num_clusters = self.output_dim = num_clusters
         self.batch_size = batch_size
         self.seed = seed
         self.clusterer = MiniBatchKMeans(n_clusters = num_clusters,
@@ -215,7 +215,6 @@ class ClusterEncoder(nn.Module):
     def _init_centroids(self):
         return torch.rand((self.num_clusters, self._encoder.feature_dim))
                                 
-
 
     def forward(self, obs, detach=False):
         h = self._encoder(obs, detach)
@@ -297,10 +296,30 @@ _AVAILABLE_ENCODERS = {'pixel': PixelEncoder,
                        }
 
 
+_CLUSTER_ENCODERS = {
+                    'pixel_cluster': ClusterPixelEncoder,
+                    'pixelCarla096_cluster': ClusterPixelEncoderCarla096,
+                    'pixelCarla098_cluster': ClusterPixelEncoderCarla098,
+                    'identity_cluster': ClusterIdentityEncoder,
+                    'vector_cluster': ClusterVectorEncoder
+}
+
+
 def make_encoder(
-    encoder_type, obs_shape, feature_dim, num_layers, num_filters, stride
+    encoder_type, obs_shape, feature_dim, num_layers, num_filters, stride, output_dim=None
 ):
+    
+    # If output_dim not specified, assume it is feature_dim
+    output_dim = output_dim or feature_dim
+
     assert encoder_type in _AVAILABLE_ENCODERS
-    return _AVAILABLE_ENCODERS[encoder_type](
-        obs_shape, feature_dim, num_layers, num_filters, stride
-    )
+
+    if encoder_type in _CLUSTER_ENCODERS:
+        # Set cluster dim to be output dim
+        return _CLUSTER_ENCODERS[encoder_type](
+                obs_shape, feature_dim, num_layers, num_filters, stride, num_clusters=output_dim
+            )
+    else:
+        return _AVAILABLE_ENCODERS[encoder_type](
+            obs_shape, feature_dim, num_layers, num_filters, stride
+        )

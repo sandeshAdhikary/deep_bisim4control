@@ -53,7 +53,8 @@ class BisimAgent(object):
         encoder_kernel_bandwidth='auto',
         encoder_normalize_loss=True,
         encoder_ortho_loss_reg=1e-3,
-        reward_decoder_num_rews=1
+        reward_decoder_num_rews=1,
+        encoder_output_dim=None
     ):
         self.device = device
         self.discount = discount
@@ -74,32 +75,33 @@ class BisimAgent(object):
         self.actor = Actor(
             obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-            num_layers, num_filters, encoder_stride
+            num_layers, num_filters, encoder_stride, encoder_output_dim=encoder_output_dim
         ).to(device)
 
         self.critic = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_output_dim=encoder_output_dim
         ).to(device)
 
         self.critic_target = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_output_dim=encoder_output_dim
         ).to(device)
 
         self.critic_target.load_state_dict(self.critic.state_dict())
 
         self.transition_model = make_transition_model(
-            transition_model_type, encoder_feature_dim, action_shape
+            transition_model_type, encoder_output_dim, action_shape
         ).to(device)
 
         self.reward_decoder_num_rews = reward_decoder_num_rews
         assert self.reward_decoder_num_rews > 0
         self.reward_decoder_centroids = None
+
         if self.reward_decoder_num_rews == 1:
             # Only network outputting single reward
             self.reward_decoder = nn.Sequential(
-                nn.Linear(encoder_feature_dim, 512),
+                nn.Linear(encoder_output_dim, 512),
                 nn.LayerNorm(512),
                 nn.ReLU(),
                 nn.Linear(512, 1)).to(device)
@@ -110,7 +112,7 @@ class BisimAgent(object):
                     nn.LayerNorm(8),
                     nn.ReLU(),
                     nn.Linear(8, 1),
-                    ).to(device) for _ in range(encoder_feature_dim)
+                    ).to(device) for _ in range(encoder_output_dim)
                 ]
             )
             self.reward_decoder_clusterer = MiniBatchKMeans(n_clusters=self.reward_decoder_num_rews, 
@@ -170,10 +172,8 @@ class BisimAgent(object):
             
 
             if hasattr(self.critic.encoder, "clusterer"):
-                # If encoder has a 'clusterer', the output is already soft-cluster labels
-                rew_features = next_features
-                assert self.reward_decoder_num_rews == rew_features.shape[1]
-                self.reward_decoder_centroids = self.critic.encoder.centroids.to(next_features.device)
+                # # If encoder has a 'clusterer', the output is already soft-cluster labels
+                rew_features = features
             else:
                 # Update centroids if they don't exist
                 if self.reward_decoder_centroids is None:
@@ -194,6 +194,9 @@ class BisimAgent(object):
             return rew
 
     def _update_reward_decoder_centroids(self, features, reset=False):
+        if hasattr(self.critic.encoder, "clusterer"):
+            # The encoder already does clustering, so no need to keep centroids for rewarder's clustrer
+            return None
         with torch.no_grad():
             if reset:
                 # Reset the clusterer
@@ -332,10 +335,12 @@ class BisimAgent(object):
 
 
     def update_encoder_spectral(self, obs, action, reward, L, step):
-        if hasattr(self.critic.encoder, "_encoder"):
-            h = self.critic.encoder._encoder(obs)     
-        else:
-            h = self.critic.encoder(obs)            
+        # if hasattr(self.critic.encoder, "_encoder"):
+        #     h = self.critic.encoder._encoder(obs)     
+        # else:
+        #     h = self.critic.encoder(obs)    
+
+        h = self.critic.encoder(obs)        
 
         # Sample random states across episodes at random
         batch_size = obs.size(0)
@@ -429,9 +434,12 @@ class BisimAgent(object):
         
         if hasattr(self.critic.encoder, 'update_centroids'):
             if step % 100 == 0:
-                # Update the encoder's clusterer
-                features = self.critic.encoder(obs)
                 reset_clusterer = False
+                # Update the encoder's clusterer
+                if hasattr(self.critic.encoder, '_encoder'):
+                    features = self.critic.encoder._encoder(obs)
+                else:
+                    features = self.critic.encoder(obs)
                 self.critic.encoder.update_centroids(features, reset=reset_clusterer)
                 self.actor.encoder.centroids = self.critic.encoder.centroids
 

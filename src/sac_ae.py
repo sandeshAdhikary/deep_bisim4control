@@ -52,20 +52,22 @@ class Actor(nn.Module):
     """MLP actor network."""
     def __init__(
         self, obs_shape, action_shape, hidden_dim, encoder_type,
-        encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride
+        encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride, encoder_output_dim=None
     ):
         super().__init__()
 
+        encoder_output_dim = encoder_output_dim or encoder_feature_dim
+
         self.encoder = make_encoder(
             encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride
+            num_filters, stride, output_dim=encoder_output_dim
         )
 
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
 
         self.trunk = nn.Sequential(
-            nn.Linear(self.encoder.feature_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(encoder_output_dim, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, 2 * action_shape[0])
         )
@@ -140,20 +142,22 @@ class Critic(nn.Module):
     """Critic network, employes two q-functions."""
     def __init__(
         self, obs_shape, action_shape, hidden_dim, encoder_type,
-        encoder_feature_dim, num_layers, num_filters, stride
+        encoder_feature_dim, num_layers, num_filters, stride, encoder_output_dim=None
     ):
         super().__init__()
 
+        encoder_output_dim = encoder_output_dim or encoder_feature_dim
+
         self.encoder = make_encoder(
             encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride
+            num_filters, stride, output_dim=encoder_output_dim
         )
 
         self.Q1 = QFunction(
-            self.encoder.feature_dim, action_shape[0], hidden_dim
+            encoder_output_dim, action_shape[0], hidden_dim
         )
         self.Q2 = QFunction(
-            self.encoder.feature_dim, action_shape[0], hidden_dim
+            encoder_output_dim, action_shape[0], hidden_dim
         )
 
         self.outputs = dict()

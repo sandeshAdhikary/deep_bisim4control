@@ -1,6 +1,6 @@
 project_name: gridworld-circles-distractor
 log_dir: /src/tune_results
-study_storage_dir: /optuna_db
+study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 108
 sampler: random
 hyperparams:

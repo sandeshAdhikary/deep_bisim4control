@@ -1,4 +1,4 @@
-project_name: gridworld-circles
+project_name: cheetah_distract_test
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 108
@@ -20,6 +20,15 @@ hyperparams:
   encoder_mode:
     type: categorical
     options: [spectral, dbc]
+  domain_name:
+    type: fixed
+    value: cheetah
+  task_name:
+    type: fixed
+    value: run
+  img_source:
+    type: fixed
+    value: 'noise'
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -41,7 +50,7 @@ base_config:
   decoder_update_freq: 1
   decoder_weight_lambda: 0.0
   discount: 0.99
-  domain_name: gridworld
+  domain_name: dmc
   encoder_feature_dim: 50
   encoder_kernel_bandwidth: auto
   encoder_lr: 0.001
@@ -51,7 +60,7 @@ base_config:
   encoder_stride: 1
   encoder_tau: 0.005
   encoder_type: pixel
-  eval_freq: 10
+  eval_freq: 1
   eval_resource_files: null
   frame_stack: 3
   hidden_dim: 256
@@ -81,4 +90,5 @@ base_config:
   transition_model_type: ''
   work_dir: .
   distractor: None
+  encoder_output_dim: None
 

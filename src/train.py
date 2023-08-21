@@ -72,6 +72,7 @@ def parse_args():
         'pixel_cluster', 'pixelCarla096_cluster', 'pixelCarla098_cluster', 'identity_cluster', 'vector_cluster'
         ])
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
+    parser.add_argument('--encoder_output_dim', default=None, type=int)
     parser.add_argument('--encoder_lr', default=1e-3, type=float)
     parser.add_argument('--encoder_tau', default=0.005, type=float)
     parser.add_argument('--encoder_stride', default=1, type=int)
@@ -105,6 +106,7 @@ def parse_args():
     parser.add_argument('--logger', default='tensorboard', type=str, choices=['tensorboard', 'wandb'])
     parser.add_argument('--logger_project', default='bisim_exp', type=str)
     args = parser.parse_args()
+
     return args
 
 
@@ -258,6 +260,7 @@ def make_agent(obs_shape, action_shape, args, device):
             encoder_ortho_loss_reg=args.encoder_ortho_loss_reg,
             encoder_mode=args.encoder_mode,
             reward_decoder_num_rews=args.reward_decoder_num_rews,
+            encoder_output_dim=args.encoder_output_dim
         )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
@@ -304,12 +307,22 @@ def make_agent(obs_shape, action_shape, args, device):
 
 def run_train(args=None):
 
+
+
     if args is not None:
         assert isinstance(args, (SimpleNamespace, dict))
         if isinstance(args, dict):
             args = SimpleNamespace(**args)
     else:
         args = parse_args()
+
+    # Set encoder output dim to be feature dim if not set
+    if not isinstance(args.encoder_output_dim, int):
+        args.encoder_output_dim = args.encoder_feature_dim
+
+    # If using cluster encoders, num_rews is the same as encoder's output dim
+    if 'cluster' in args.encoder_type:
+        args.reward_decoder_num_rews = args.encoder_output_dim
 
     utils.set_seed_everywhere(args.seed)
 

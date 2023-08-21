@@ -4,6 +4,10 @@ from envs.gridworld.gridworld import GridWorld, GridWorldRGB
 from torch.utils.data import DataLoader
 from einops import rearrange
 from PIL import Image
+from encoder import _CLUSTER_ENCODERS
+
+cluster_encoder_names = [x.__name__ for x in _CLUSTER_ENCODERS.values()]
+
 class GridWorldEvalCallback():
 
     def __init__(self, config=None):
@@ -61,7 +65,7 @@ class GridWorldEvalCallback():
                 heatmap = torch.from_numpy(heatmap)
                 logger.log_image('eval/pred_rews', heatmap, step, image_mode='chw')
             
-                # Get reward grads
+                # # Get reward grads
                 self.log_rew_grads(agent, all_obs.to(torch.float32), logger, step)
 
         self.env.env.env.env.env.random_init = orig_random_init
@@ -85,10 +89,16 @@ class GridWorldEvalCallback():
 
             if agent.reward_decoder_num_rews > 1:
                 pred_rews = agent.decode_reward(features, next_features=features, sum=False)
-                cluster_labels = torch.cdist(features, agent.reward_decoder_centroids, p=2)
-                cluster_labels = torch.exp(-cluster_labels**2)
+                
+                if agent.critic.encoder.__class__.__name__ not in cluster_encoder_names:
+                    cluster_labels = torch.cdist(features, agent.reward_decoder_centroids, p=2)
+                    cluster_labels = torch.exp(-cluster_labels**2)
+                    all_cluster_labels.append(cluster_labels.detach().cpu())
+                else:
+                    all_cluster_labels = None
+
                 all_pred_rews.append(pred_rews.detach().cpu())
-                all_cluster_labels.append(cluster_labels.detach().cpu())
+                
 
         all_features = torch.stack(all_features)
         all_features = rearrange(all_features, 'n b d -> (n b) d')
@@ -104,34 +114,6 @@ class GridWorldEvalCallback():
             all_cluster_labels = rearrange(all_cluster_labels, 'n b d -> (n b) d')
 
         return {'features': all_features, 'pred_rews': all_pred_rews, 'cluster_labels': all_cluster_labels}
-
-    # def get_spectral_embeddings(self, obs, agent):
-    #     # Get embeddings for all observations
-    #     batch_size = 100
-    #     dataloader = DataLoader(obs, batch_size=batch_size, shuffle=False)
-    #     all_features, all_pred_rews, all_cluster_labels = [], [], []
-    #     for ido, obs in enumerate(dataloader):
-    #         features = agent.critic.encoder(obs.to(agent.device))
-    #         # TODO: decode_rewards should only take single features
-    #         pred_rews = agent.decode_reward(features, next_features=features, sum=False)
-    #         cluster_labels = torch.cdist(features, agent.reward_decoder_centroids, p=2)
-    #         cluster_labels = torch.exp(-cluster_labels**2)
-            
-
-    #         if ido == 0:
-    #             max_features = min(self.max_features, features.shape[1])
-    #         all_features.append(features[:,:max_features].detach().cpu())
-    #         all_pred_rews.append(pred_rews.detach().cpu())
-    #         all_cluster_labels.append(cluster_labels.detach().cpu())
-    #     all_features = torch.stack(all_features)
-    #     all_features = rearrange(all_features, 'n b d -> (n b) d')
-    #     all_pred_rews = torch.stack(all_pred_rews)
-    #     all_pred_rews = rearrange(all_pred_rews, 'n b d -> (n b) d')
-    #     all_cluster_labels = torch.stack(all_cluster_labels)
-    #     all_cluster_labels = rearrange(all_cluster_labels, 'n b d -> (n b) d')
-    #     if all_pred_rews.shape[-1] > 1:
-    #         # Also append the total rewards for visualization
-    #         all_pred_rews = torch.concat([all_pred_rews, all_pred_rews.sum(-1, keepdim=True)], dim=1)
 
 
     def get_heatmaps(self, indices, values, color_mode='continuous'):
@@ -167,8 +149,13 @@ class GridWorldEvalCallback():
         obs.requires_grad = True
         features = agent.critic.encoder(obs) # (Ep*N, d)
         # Get cluster labels
-        cluster_labels = torch.cdist(features, agent.reward_decoder_centroids, p=2)
-        cluster_labels = torch.exp(-cluster_labels**2) # (Ep*N, d)
+        if agent.critic.encoder.__class__.__name__ in cluster_encoder_names:
+            # The encoder outputs are already cluster labels
+            cluster_labels = features
+        else:
+            # Use rewarder's cluster to get cluster labels
+            cluster_labels = torch.cdist(features, agent.reward_decoder_centroids, p=2)
+            cluster_labels = torch.exp(-cluster_labels**2) # (Ep*N, d)
         sub_rews = []
         sub_rew_grads = []
         for idr in range(agent.reward_decoder_num_rews):

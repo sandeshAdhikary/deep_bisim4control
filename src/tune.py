@@ -59,8 +59,6 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unknown Sampler")
 
-
-
     study = optuna.create_study(direction='maximize', 
                                 study_name=project_name,
                                 storage=hyperparams_config['study_storage_url'],

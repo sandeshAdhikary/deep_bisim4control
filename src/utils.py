@@ -172,10 +172,16 @@ class FrameStack(gym.Wrapper):
             shape=((shp[0] * k,) + shp[1:]),
             dtype=env.observation_space.dtype
         )
-        try:
+        if hasattr(env, "_max_episode_steps"):
             self._max_episode_steps = env._max_episode_steps
-        except AttributeError as e:
+        elif hasattr(env, "max_episode_steps"):
             self._max_episode_steps = env.max_episode_steps
+        else:
+            raise ValueError("Environment has no attribute max_episode_steps")
+        # try:
+        #     self._max_episode_steps = env._max_episode_steps
+        # except AttributeError as e:
+        #     self._max_episode_steps = env.max_episode_steps
 
     def reset(self):
         obs = self.env.reset()

@@ -1,7 +1,7 @@
-project_name: gridworld-circles
+project_name: gridworld_circles_cluster
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 108
+n_trials: 540
 sampler: random
 distractor: None
 hyperparams:
@@ -20,6 +20,12 @@ hyperparams:
   encoder_mode:
     type: categorical
     options: [spectral, dbc]
+  encoder_output_dim:
+    type: categorical
+    options: [2, 3, 8, 16, 32]
+  encoder_type:
+    type: fixed
+    value: 'pixel_cluster'
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -81,4 +87,5 @@ base_config:
   transition_model_type: ''
   work_dir: .
   distractor: None
+  encoder_output_dim: None
 
