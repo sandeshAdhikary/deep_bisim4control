@@ -1,7 +1,7 @@
 from gym import Wrapper
 from utils import plot_to_array
 from PIL import Image
-   
+from einops import rearrange
 
 # Copyright (c) Facebook, Inc. and its affiliates.
 # All rights reserved.
@@ -171,7 +171,12 @@ class DistractorWrapper(Wrapper):
     def step(self, action):
         # Step the distractor env
         self.distractor.step()
-        return self.env.step(action)
+        _, rew, info, terminated, truncated =  self.env.step(action)
+
+        obs_distract = self.render()
+        obs_distract = rearrange(obs_distract, 'h w c -> c h w')
+        return obs_distract, rew, info, terminated, truncated
+        
     
     def render(self, **kwargs):
 

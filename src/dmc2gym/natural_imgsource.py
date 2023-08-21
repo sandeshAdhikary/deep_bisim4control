@@ -113,7 +113,10 @@ class RandomImageSource(ImageSource):
             fname = self.filelist[i % len(self.filelist)]
             if self.grayscale: im = cv2.imread(fname, cv2.IMREAD_GRAYSCALE)[..., None]
             else:              im = cv2.imread(fname, cv2.IMREAD_COLOR)
-            self.arr[i] = cv2.resize(im, (self.shape[1], self.shape[0])) ## THIS IS NOT A BUG! cv2 uses (width, height)
+            new_img = cv2.resize(im, (self.shape[1], self.shape[0])) ## THIS IS NOT A BUG! cv2 uses (width, height)
+            if len(new_img.shape) == 2:
+                new_img = new_img[:,:,None] # Add (,1) dimension at the end
+            self.arr[i] = new_img
 
     def reset(self):
         self._loc = np.random.randint(0, self.total_frames)

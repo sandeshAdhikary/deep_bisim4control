@@ -26,9 +26,9 @@ hyperparams:
   task_name:
     type: fixed
     value: run
-  img_source:
+  distractor:
     type: fixed
-    value: 'noise'
+    value: ideal_gas
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -66,12 +66,12 @@ base_config:
   hidden_dim: 256
   image_size: 84
   img_source: null
-  init_steps: 1_000
+  init_steps: 100
   init_temperature: 0.01
   k: 3
   load_encoder: null
   logger: wandb
-  num_eval_episodes: 5
+  num_eval_episodes: 1
   num_filters: 32
   num_layers: 4
   num_train_steps: 25_000
