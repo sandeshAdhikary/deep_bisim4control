@@ -73,6 +73,7 @@ if __name__ == "__main__":
                                 load_if_exists=True)
     
     # Set up tracking callback with wandb
-    wandbc = WeightsAndBiasesCallback(wandb_kwargs={"project": project_name,})
+    # wandbc = WeightsAndBiasesCallback(wandb_kwargs={"project": project_name,})
 
-    study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'], callbacks=[wandbc])
+    # study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'], callbacks=[wandbc])
+    study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'])
