@@ -1,7 +1,7 @@
-project_name: cheetah_distract
+project_name: gridworld-circles-decomp-envrewards
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 108
+n_trials: 216
 sampler: random
 distractor: None
 hyperparams:
@@ -20,15 +20,15 @@ hyperparams:
   encoder_mode:
     type: categorical
     options: [spectral, dbc]
-  domain_name:
+  agent:
     type: fixed
-    value: cheetah
-  task_name:
+    value: bisim_decomp
+  use_cagrad:
+    type: categorical
+    options: [true, false]
+  vec_reward_from_model:
     type: fixed
-    value: run
-  distractor:
-    type: fixed
-    value: ideal_gas
+    value: false
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -50,7 +50,7 @@ base_config:
   decoder_update_freq: 1
   decoder_weight_lambda: 0.0
   discount: 0.99
-  domain_name: dmc
+  domain_name: gridworld
   encoder_feature_dim: 50
   encoder_kernel_bandwidth: auto
   encoder_lr: 0.001
@@ -60,21 +60,21 @@ base_config:
   encoder_stride: 1
   encoder_tau: 0.005
   encoder_type: pixel
-  eval_freq: 1
+  eval_freq: 10
   eval_resource_files: null
   frame_stack: 3
   hidden_dim: 256
   image_size: 84
   img_source: null
-  init_steps: 100
+  init_steps: 1_000
   init_temperature: 0.01
   k: 3
   load_encoder: null
   logger: wandb
-  num_eval_episodes: 1
+  num_eval_episodes: 5
   num_filters: 32
   num_layers: 4
-  num_train_steps: 25_000
+  num_train_steps: 10_000
   port: 2000
   render: false
   replay_buffer_capacity: 50_000

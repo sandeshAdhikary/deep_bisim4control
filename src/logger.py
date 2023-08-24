@@ -138,6 +138,8 @@ class Logger(object):
 
     def _try_sw_log_image(self, key, image, step, image_mode='hwc'):
         if self.sw_type == 'tensorboard':
+            if not torch.is_tensor(image):
+                image = torch.from_numpy(image)
             assert image.dim() == 3
             grid = torchvision.utils.make_grid(image.unsqueeze(0))
             self._sw.add_image(key, grid, step)
@@ -189,9 +191,9 @@ class Logger(object):
         assert key.startswith('train') or key.startswith('eval')
         self._try_sw_log_image(key, image, step, image_mode)
 
-    def log_video(self, key, frames, step):
+    def log_video(self, key, frames, step, image_mode='hwc'):
         assert key.startswith('train') or key.startswith('eval')
-        self._try_sw_log_video(key, frames, step)
+        self._try_sw_log_video(key, frames, step, image_mode)
 
     def log_histogram(self, key, histogram, step):
         assert key.startswith('train') or key.startswith('eval')

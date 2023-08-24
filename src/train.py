@@ -20,13 +20,16 @@ from types import SimpleNamespace
 
 from agent.baseline_agent import BaselineAgent
 from agent.bisim_agent import BisimAgent
+from agent.bisim_agent_decomp import BisimAgentDecomp
 from agent.deepmdp_agent import DeepMDPAgent
 from tqdm import trange
 from envs.reacher import make_reacher
 from envs.reacher.callbacks import ReacherEvalCallback
 from envs.gridworld import make_gridworld
 from envs.gridworld.callbacks import GridWorldEvalCallback
+from envs.dmc2gym.callbacks import DMCCallback
 from envs.distractor_wrappers import DistractorWrapper
+import os
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -44,7 +47,7 @@ def parse_args():
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=10_000, type=int)
     # train
-    parser.add_argument('--agent', default='bisim', type=str, choices=['baseline', 'bisim', 'deepmdp'])
+    parser.add_argument('--agent', default='bisim', type=str, choices=['baseline', 'bisim', 'deepmdp', 'bisim_decomp'])
     parser.add_argument('--init_steps', default=1000, type=int)
     parser.add_argument('--num_train_steps', default=1000000, type=int)
     parser.add_argument('--batch_size', default=512, type=int)
@@ -60,6 +63,8 @@ def parse_args():
     parser.add_argument('--critic_beta', default=0.9, type=float)
     parser.add_argument('--critic_tau', default=0.005, type=float)
     parser.add_argument('--critic_target_update_freq', default=2, type=int)
+    parser.add_argument('--use_cagrad', default=False, action='store_true')
+    parser.add_argument('--vec_reward_from_model', default=False, action='store_true')
     # actor
     parser.add_argument('--actor_lr', default=1e-3, type=float)
     parser.add_argument('--actor_beta', default=0.9, type=float)
@@ -118,6 +123,7 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
     steer = 0.
     brake = 0.
     count = 0
+    max_obs_video_frames = 200
 
     # embedding visualization
     obses = []
@@ -140,8 +146,8 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
             with utils.eval_mode(agent):
                 action = agent.select_action(obs)
 
+            obses.append(obs)
             if embed_viz_dir:
-                obses.append(obs)
                 with torch.no_grad():
                     values.append(min(agent.critic(torch.Tensor(obs).to(device).unsqueeze(0), torch.Tensor(action).to(device).unsqueeze(0))).item())
                     embeddings.append(agent.critic.encoder(torch.Tensor(obs).unsqueeze(0).to(device)).cpu().detach().numpy())
@@ -177,6 +183,11 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
         dataset = {'obs': obses, 'values': values, 'embeddings': embeddings}
         torch.save(dataset, os.path.join(embed_viz_dir, 'train_dataset_{}.pt'.format(step)))
 
+    obses = np.stack(obses)
+    if len(obses.shape) == 4:
+        # Image observations
+        L.log_video('eval/obs_video', obses[:max_obs_video_frames, :], image_mode='chw', step=step)
+
     L.dump(step)
 
     if do_carla_metrics:
@@ -191,6 +202,8 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
     return np.median(episode_rewards)
 
 def make_agent(obs_shape, action_shape, args, device):
+    if (args.agent is None) or (args.agent == np.nan):
+        raise ValueError("args.agent is None or NaN")
     if args.agent == 'baseline':
         agent = BaselineAgent(
             obs_shape=obs_shape,
@@ -262,6 +275,46 @@ def make_agent(obs_shape, action_shape, args, device):
             reward_decoder_num_rews=args.reward_decoder_num_rews,
             encoder_output_dim=args.encoder_output_dim
         )
+    elif args.agent == 'bisim_decomp':
+        agent = BisimAgentDecomp(
+            obs_shape=obs_shape,
+            action_shape=action_shape,
+            device=device,
+            hidden_dim=args.hidden_dim,
+            discount=args.discount,
+            init_temperature=args.init_temperature,
+            alpha_lr=args.alpha_lr,
+            alpha_beta=args.alpha_beta,
+            actor_lr=args.actor_lr,
+            actor_beta=args.actor_beta,
+            actor_log_std_min=args.actor_log_std_min,
+            actor_log_std_max=args.actor_log_std_max,
+            actor_update_freq=args.actor_update_freq,
+            critic_lr=args.critic_lr,
+            critic_beta=args.critic_beta,
+            critic_tau=args.critic_tau,
+            critic_target_update_freq=args.critic_target_update_freq,
+            encoder_type=args.encoder_type,
+            encoder_feature_dim=args.encoder_feature_dim,
+            encoder_lr=args.encoder_lr,
+            encoder_tau=args.encoder_tau,
+            encoder_stride=args.encoder_stride,
+            decoder_type=args.decoder_type,
+            decoder_lr=args.decoder_lr,
+            decoder_update_freq=args.decoder_update_freq,
+            decoder_weight_lambda=args.decoder_weight_lambda,
+            transition_model_type=args.transition_model_type,
+            num_layers=args.num_layers,
+            num_filters=args.num_filters,
+            bisim_coef=args.bisim_coef,
+            encoder_kernel_bandwidth=args.encoder_kernel_bandwidth,
+            encoder_normalize_loss=args.encoder_normalize_loss,
+            encoder_ortho_loss_reg=args.encoder_ortho_loss_reg,
+            encoder_mode=args.encoder_mode,
+            reward_decoder_num_rews=args.reward_decoder_num_rews,
+            encoder_output_dim=args.encoder_output_dim,
+            use_cagrad=args.use_cagrad
+        )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
             obs_shape=obs_shape,
@@ -306,7 +359,6 @@ def make_agent(obs_shape, action_shape, args, device):
 
 
 def run_train(args=None):
-
 
 
     if args is not None:
@@ -443,14 +495,17 @@ def run_train(args=None):
     if isinstance(env.action_space, gym.spaces.box.Box):
         assert env.action_space.low.min() >= -1
         assert env.action_space.high.max() <= 1
-
+    
+    store_info_in_bueer = args.agent.endswith('decomp')
     replay_buffer = utils.ReplayBuffer(
         obs_shape=env.observation_space.shape,
         action_shape=env.action_space.shape,
         capacity=args.replay_buffer_capacity,
         batch_size=args.batch_size,
-        device=device
+        device=device,
+        store_infos=store_info_in_bueer
     )
+ 
 
     agent = make_agent(
         obs_shape=env.observation_space.shape,
@@ -527,21 +582,30 @@ def run_train(args=None):
                 prog_bar.set_description_str(f"Training: Update: {idu+1}/{num_updates}")
 
         curr_reward = reward
-        next_obs, reward, terminated, truncated, _ = env.step(action)
+        next_obs, reward, terminated, truncated, info = env.step(action)
         # TODO: Should done be terminated or truncated?
-        done = truncated or terminated
+        done = terminated
         # allow infinit bootstrap
-        try:
+        max_ep_steps = None
+        if hasattr(env, "_max_episode_steps"):
             max_ep_steps = env._max_episode_steps
-        except AttributeError as e:
+        elif hasattr(env, "max_episode_steps"):
             max_ep_steps = env.max_episode_steps
+        else:
+            raise ValueError("env has no attribute max_episode_steps or _max_episode_steps")
 
-        done_bool = 0 if episode_step + 1 == max_ep_steps else float(
-            done
-        )
+        done_bool = done
+        if max_ep_steps is not None:
+            done_bool = 0 if episode_step + 1 == max_ep_steps else float(
+                done
+            )
         episode_reward += reward
+        
+        buffer_sample = obs, action, curr_reward, reward, next_obs, done_bool
+        if hasattr(replay_buffer, 'infos') and (replay_buffer.infos is not None):
+            buffer_sample = (*buffer_sample, info)
 
-        replay_buffer.add(obs, action, curr_reward, reward, next_obs, done_bool)
+        replay_buffer.add(*buffer_sample)
         np.copyto(replay_buffer.k_obses[replay_buffer.idx - args.k], next_obs)
 
         obs = next_obs

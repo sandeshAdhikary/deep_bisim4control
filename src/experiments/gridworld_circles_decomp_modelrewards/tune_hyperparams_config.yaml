@@ -1,8 +1,9 @@
-project_name: optuna-test-drive
+project_name: gridworld-circles-decomp-modelrewards
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 108
+n_trials: 216
 sampler: random
+distractor: None
 hyperparams:
   decoder_lr:
     type: categorical
@@ -19,9 +20,15 @@ hyperparams:
   encoder_mode:
     type: categorical
     options: [spectral, dbc]
-  distractor:
+  agent:
     type: fixed
-    value: 'ideal_gas'
+    value: bisim_decomp
+  use_cagrad:
+    type: categorical
+    options: [true, false]
+  vec_reward_from_model:
+    type: fixed
+    value: true
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -53,13 +60,13 @@ base_config:
   encoder_stride: 1
   encoder_tau: 0.005
   encoder_type: pixel
-  eval_freq: 3
+  eval_freq: 10
   eval_resource_files: null
   frame_stack: 3
   hidden_dim: 256
   image_size: 84
   img_source: null
-  init_steps: 10
+  init_steps: 1_000
   init_temperature: 0.01
   k: 3
   load_encoder: null
@@ -67,7 +74,7 @@ base_config:
   num_eval_episodes: 5
   num_filters: 32
   num_layers: 4
-  num_train_steps: 500
+  num_train_steps: 10_000
   port: 2000
   render: false
   replay_buffer_capacity: 50_000
@@ -82,4 +89,6 @@ base_config:
   total_frames: 1000
   transition_model_type: ''
   work_dir: .
+  distractor: None
+  encoder_output_dim: None
 

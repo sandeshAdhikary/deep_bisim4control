@@ -16,6 +16,7 @@ import io
 import matplotlib.pyplot as plt
 from PIL import Image
 from einops import rearrange
+from copy import copy
 # import logging
 # logging.getLogger('matplotlib.font_manager').disabled = True
 
@@ -80,7 +81,7 @@ def preprocess_obs(obs, bits=5):
 
 class ReplayBuffer(object):
     """Buffer to store environment transitions."""
-    def __init__(self, obs_shape, action_shape, capacity, batch_size, device):
+    def __init__(self, obs_shape, action_shape, capacity, batch_size, device, store_infos=False):
         self.capacity = capacity
         self.batch_size = batch_size
         self.device = device
@@ -95,18 +96,23 @@ class ReplayBuffer(object):
         self.curr_rewards = np.empty((capacity, 1), dtype=np.float32)
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
         self.not_dones = np.empty((capacity, 1), dtype=np.float32)
+        self.infos = None
+        if store_infos:
+            self.infos = [None for _ in range(capacity)]
 
         self.idx = 0
         self.last_save = 0
         self.full = False
 
-    def add(self, obs, action, curr_reward, reward, next_obs, done):
+    def add(self, obs, action, curr_reward, reward, next_obs, done, info=None):
         np.copyto(self.obses[self.idx], obs)
         np.copyto(self.actions[self.idx], action)
         np.copyto(self.curr_rewards[self.idx], curr_reward)
         np.copyto(self.rewards[self.idx], reward)
         np.copyto(self.next_obses[self.idx], next_obs)
         np.copyto(self.not_dones[self.idx], not done)
+        if (self.infos is not None) and (info is not None):
+            self.infos[self.idx] = copy(info)
 
         self.idx = (self.idx + 1) % self.capacity
         self.full = self.full or self.idx == 0
@@ -124,9 +130,21 @@ class ReplayBuffer(object):
             self.next_obses[idxs], device=self.device
         ).float()
         not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
-        if k:
-            return obses, actions, rewards, next_obses, not_dones, torch.as_tensor(self.k_obses[idxs], device=self.device)
-        return obses, actions, curr_rewards, rewards, next_obses, not_dones
+
+
+        if k: 
+            sample_outputs = obses, actions, rewards, next_obses, not_dones, torch.as_tensor(self.k_obses[idxs], device=self.device), infos
+        else:
+            sample_outputs = obses, actions, curr_rewards, rewards, next_obses, not_dones
+
+
+        if self.infos is not None:
+            # Return infos as well
+            infos = [self.infos[idx] for idx in idxs]
+            sample_outputs = (*sample_outputs, infos)
+        
+        return sample_outputs
+
 
     def save(self, save_dir):
         if self.idx == self.last_save:
@@ -140,6 +158,10 @@ class ReplayBuffer(object):
             self.curr_rewards[self.last_save:self.idx],
             self.not_dones[self.last_save:self.idx]
         ]
+        if self.infos is not None:
+            # Add infos to payload
+            payload.append(self.infos[self.last_save:self.idx])
+
         self.last_save = self.idx
         torch.save(payload, path)
 
@@ -157,6 +179,8 @@ class ReplayBuffer(object):
             self.rewards[start:end] = payload[3]
             self.curr_rewards[start:end] = payload[4]
             self.not_dones[start:end] = payload[5]
+            if self.infos is not None:
+                self.infos[start:end] = payload[6]
             self.idx = end
 
 

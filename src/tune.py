@@ -4,9 +4,14 @@ import optuna
 from functools import partial
 import os
 from optuna.integration.wandb import WeightsAndBiasesCallback
-
+import wandb
+import numpy as np
 
 def objective(trial, hyperparams_config, log_dir):
+
+    # Delete synced wandb files to prevent storage overflow
+    os.system(f'echo "y" | wandb sync --clean --clean-old-hours 1')
+
     # config = yaml.safe_load(open(hyperparams_config['base_config'], 'r'))
     config = hyperparams_config['base_config']
 
@@ -28,8 +33,11 @@ def objective(trial, hyperparams_config, log_dir):
 
     config['logger_project'] = hyperparams_config['project_name']
     config['work_dir'] = os.path.join(log_dir, f"trial_{str(trial._trial_id)}")
-
-    avg_ep_reward = run_train(config)    
+    try:
+        avg_ep_reward = run_train(config)    
+    except (Exception, ValueError, AssertionError) as e:
+        print(e)
+        avg_ep_reward = np.nan
 
     return avg_ep_reward
 

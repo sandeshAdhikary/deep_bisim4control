@@ -198,6 +198,8 @@ class GridWorld(gym.Env):
         else:
             raise ValueError("Invalid reward mode")
         
+        rew_info['vec_reward'] = [rew_info[x] for x in ['goal_reward', 'obstacle_reward']]
+
         return rew, rew_info
 
     def render(self, **kwargs):
