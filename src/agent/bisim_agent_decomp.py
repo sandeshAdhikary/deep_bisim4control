@@ -453,7 +453,7 @@ class BisimAgentDecomp(object):
     def update(self, replay_buffer, L, step):
         # Decomp_edit: Get vector of rewards from info
         obs, action, _, true_reward, next_obs, not_done, info = replay_buffer.sample()
-        assert info[0].get('vec_reward') is not None, "No vec_reward in sample info"
+        # assert info[0].get('vec_reward') is not None, "No vec_reward in sample info"
 
         # Use predicted vec_rewards instead
         if self.vec_reward_from_model:
