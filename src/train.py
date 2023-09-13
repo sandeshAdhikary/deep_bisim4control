@@ -30,6 +30,7 @@ from envs.gridworld.callbacks import GridWorldEvalCallback
 from envs.dmc2gym.callbacks import DMCCallback
 from envs.distractor_wrappers import DistractorWrapper
 import os
+from copy import copy
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -44,6 +45,10 @@ def parse_args():
     parser.add_argument('--img_source', default=None, type=str, choices=['color', 'noise', 'images', 'video', 'none'])
     parser.add_argument('--total_frames', default=1000, type=int)
     parser.add_argument('--distractor', default='None', choices=['ideal_gas'])
+    parser.add_argument('--distractor_type', default='None', choices=['overlay', 'padding'])
+    parser.add_argument('--distractor_img_shrink_factor', default=1.3, type=float)
+    parser.add_argument('--distraction_level', default=0.2, type=float)
+    parser.add_argument('--boxed_env', default=False, action='store_true')
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=10_000, type=int)
     # train
@@ -65,6 +70,7 @@ def parse_args():
     parser.add_argument('--critic_target_update_freq', default=2, type=int)
     parser.add_argument('--use_cagrad', default=False, action='store_true')
     parser.add_argument('--vec_reward_from_model', default=False, action='store_true')
+    parser.add_argument('--reward_decomp_method', default='eigenrewards', choices=['eigenrewards', 'cluster'])
     # actor
     parser.add_argument('--actor_lr', default=1e-3, type=float)
     parser.add_argument('--actor_beta', default=0.9, type=float)
@@ -313,7 +319,8 @@ def make_agent(obs_shape, action_shape, args, device):
             encoder_mode=args.encoder_mode,
             reward_decoder_num_rews=args.reward_decoder_num_rews,
             encoder_output_dim=args.encoder_output_dim,
-            use_cagrad=args.use_cagrad
+            use_cagrad=args.use_cagrad,
+            reward_decomp_method=args.reward_decomp_method
         )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
@@ -401,7 +408,8 @@ def run_train(args=None):
             seed=args.seed,
             height=args.image_size,
             width=args.image_size,
-            size=size
+            size=size,
+            boxed_env=args.boxed_env
         )
         eval_env = make_gridworld(
             domain_name=args.domain_name,
@@ -410,7 +418,8 @@ def run_train(args=None):
             seed=args.seed + 1,
             height=args.image_size,
             width=args.image_size,
-            size=size
+            size=size,
+            boxed_env=args.boxed_env
         )
         eval_callback = GridWorldEvalCallback()
     elif args.domain_name == 'reacher':
@@ -464,11 +473,13 @@ def run_train(args=None):
 
     if args.distractor in ['ideal_gas']:
         distractor_kwargs = {
-            'num_bodies': 10,
+            'num_bodies': int(args.distraction_level*40),
             'num_dimensions': 2,
+            'distractor_type': args.distractor_type,
+            'img_shrink_factor': args.distractor_img_shrink_factor
         }
-        env = DistractorWrapper(env, distractor_kwargs)
-        eval_env = DistractorWrapper(eval_env, distractor_kwargs)
+        env = DistractorWrapper(env, copy(distractor_kwargs))
+        eval_env = DistractorWrapper(eval_env, copy(distractor_kwargs))
 
 
     # stack several consecutive frames together

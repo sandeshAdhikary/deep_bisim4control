@@ -170,6 +170,13 @@ class Logger(object):
                 histogram_np = histogram.detach().cpu().numpy()
             self._sw.log({key: wandb.Histogram(histogram_np)}, step=step)
 
+    def _try_sw_log_table(self, key, data, step):
+        if self.sw_type == 'wandb':
+            data = data.reshape(data.shape[0], -1)
+            table = wandb.Table(data=list(data), columns=list(range(data.shape[1])))
+            self._sw.log({key: table}, step=step)
+
+
     def log(self, key, value, step, n=1):
         assert key.startswith('train') or key.startswith('eval')
         if type(value) == torch.Tensor:
@@ -198,6 +205,10 @@ class Logger(object):
     def log_histogram(self, key, histogram, step):
         assert key.startswith('train') or key.startswith('eval')
         self._try_sw_log_histogram(key, histogram, step)
+
+    def log_table(self, key, data, step):
+        assert key.startswith('train') or key.startswith('eval')
+        self._try_sw_log_table(key, data, step)
 
     def dump(self, step):
         self._train_mg.dump(step, 'train')

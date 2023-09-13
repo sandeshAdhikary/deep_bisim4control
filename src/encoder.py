@@ -41,8 +41,8 @@ class PixelEncoder(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward_conv(self, obs):
-        obs = obs / 255.
+    def forward_conv(self, obs_input):
+        obs = obs_input / 255.
         self.outputs['obs'] = obs
 
         conv = torch.relu(self.convs[0](obs))
@@ -55,8 +55,8 @@ class PixelEncoder(nn.Module):
         h = conv.view(conv.size(0), -1)
         return h
 
-    def forward(self, obs, detach=False):
-        h = self.forward_conv(obs)
+    def forward(self, obs_input, detach=False):
+        h = self.forward_conv(obs_input)
 
         if detach:
             h = h.detach()
@@ -162,8 +162,8 @@ class VectorEncoder(nn.Module):
         self.outputs = dict()
 
 
-    def forward(self, obs, detach=False):
-        return self.ln(self.fc(obs))
+    def forward(self, obs_input, detach=False):
+        return self.ln(self.fc(obs_input))
     
     def copy_conv_weights_from(self, source):
         pass
@@ -216,9 +216,9 @@ class ClusterEncoder(nn.Module):
         return torch.rand((self.num_clusters, self._encoder.feature_dim))
                                 
 
-    def forward(self, obs, detach=False):
-        h = self._encoder(obs, detach)
-        features = torch.cdist(h, self.centroids.to(obs.device), p=2)
+    def forward(self, obs_input, detach=False):
+        h = self._encoder(obs_input, detach)
+        features = torch.cdist(h, self.centroids.to(obs_input.device), p=2)
         features = torch.exp(-features**2)
         return features
 

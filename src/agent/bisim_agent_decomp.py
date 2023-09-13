@@ -58,20 +58,22 @@ class BisimAgentDecomp(object):
         encoder_output_dim=None,
         use_cagrad=False,
         vec_reward_from_model=True,
+        reward_decomp_method='eigenrewards' # ['eigenrewards', 'cluster']
     ):
         
 
         #TODO: Make these arguments; need one extra for the entropy reward
-        # num_critics = 2 + 1 # 2 sub-rews in env, and 1 extra for entropy
-        # num_critics = 5
+        self.action_shape = action_shape
         self.use_cagrad = use_cagrad
         self.vec_reward_from_model = vec_reward_from_model
         if self.vec_reward_from_model:
             num_critics = reward_decoder_num_rews + 2 # +1 for err, +1 for entropy
         else:
-            #TODO: make this flexible and based on the returns from env
-            num_critics = 2 + 1 # gridworld: goal_rew + obstacle_rew + entropy
+            raise NotImplementedError()
+            # #TODO: make this flexible and based on the returns from env
+            # num_critics = 2 + 1 # gridworld: goal_rew + obstacle_rew + entropy
 
+        self.reward_decomp_method = reward_decomp_method
 
         self.device = device
         self.discount = discount
@@ -118,27 +120,37 @@ class BisimAgentDecomp(object):
         self.reward_decoder_centroids = None
 
         if self.reward_decoder_num_rews == 1:
-            # Only network outputting single reward
+            # one network outputing single reward
             self.reward_decoder = nn.Sequential(
-                nn.Linear(encoder_output_dim, 512),
+                nn.Linear(encoder_output_dim + self.action_shape[0], 512),
                 nn.LayerNorm(512),
                 nn.ReLU(),
                 nn.Linear(512, 1)).to(device)
         else:
-            self.reward_decoder = nn.ModuleList(
-                [nn.Sequential(
-                    nn.Linear(1, 8),
-                    nn.LayerNorm(8),
+            if self.reward_decomp_method == 'eigenrewards':
+                # One network outputing multiple reward weights
+                self.reward_decoder = nn.Sequential(
+                    nn.Linear(encoder_output_dim + self.action_shape[0], 512),
+                    nn.LayerNorm(512),
                     nn.ReLU(),
-                    nn.Linear(8, 1),
-                    ).to(device) for _ in range(encoder_output_dim)
-                ]
-            )
-            self.reward_decoder_clusterer = MiniBatchKMeans(n_clusters=self.reward_decoder_num_rews, 
-                                                            init="k-means++", 
-                                                            n_init="auto",
-                                                            batch_size=512,
-                                                            random_state=123)
+                    nn.Linear(512, self.reward_decoder_num_rews)).to(device)
+            elif self.reward_decomp_method == 'cluster':
+                # Multiple separate decoders outputing scalar sub-rewards
+                self.reward_decoder = nn.ModuleList(
+                    [nn.Sequential(
+                        nn.Linear(1 + self.action_shape[0], 8),
+                        nn.LayerNorm(8),
+                        nn.ReLU(),
+                        nn.Linear(8, 1),
+                        ).to(device) for _ in range(encoder_output_dim)
+                    ]
+                )
+                # KMeans clusterer to get soft cluster labels
+                self.reward_decoder_clusterer = MiniBatchKMeans(n_clusters=self.reward_decoder_num_rews, 
+                                                                init="k-means++", 
+                                                                n_init="auto",
+                                                                batch_size=512,
+                                                                random_state=123)
 
         # tie encoders between actor and critic
         self.actor.encoder.copy_conv_weights_from(self.critic.encoder)
@@ -184,36 +196,40 @@ class BisimAgentDecomp(object):
         self.actor.train(training)
         self.critic.train(training)
 
-    def decode_reward(self, features, next_features=None, sum=True):
+    def decode_reward(self, features, actions, sum=True):
 
+        features_actions = torch.cat([features, actions], dim=1)
 
         if self.reward_decoder_num_rews == 1:
-            return self.reward_decoder(features).view(-1,1)
+            return self.reward_decoder(features_actions).view(-1,1)
         else:
-            assert next_features is not None
-            
+            if self.reward_decomp_method == 'eigenrewards':
+                # Reward decoder predicts n reward weights from the features
+                weights = self.reward_decoder(features_actions)
+                weights = weights/weights.sum(dim=1, keepdim=True)
 
-            if hasattr(self.critic.encoder, "clusterer"):
-                # # If encoder has a 'clusterer', the output is already soft-cluster labels
-                rew_features = next_features
+                # Individual rewards are weights * features
+                rew = weights * features[:, :self.reward_decoder_num_rews] # Use first n features
+                rew = rew.sum(dim=1) if sum else rew
+
+                return rew
+            elif self.reward_decomp_method == 'cluster':
+                if hasattr(self.critic.encoder, "clusterer"):
+                    # # If encoder has a 'clusterer', the output is already soft-cluster labels
+                    rew_features = features_actions
+                else:
+                    #TODO:  Doesn't make sense to define centroids only based on features
+                    raise NotImplementedError()
+
+                # Get individual sub-rewards
+                rew = []
+                for idr in range(self.reward_decoder_num_rews):
+                    rew.append(self.reward_decoder[idr](rew_features[:,idr].view(-1,1)))
+                rew = torch.stack(rew).permute((1,0,2))
+                rew = rew.sum(dim=1) if sum else rew.squeeze(-1)# (B,N)
+                return rew
             else:
-                # Update centroids if they don't exist
-                if self.reward_decoder_centroids is None:
-                    self._update_reward_decoder_centroids(next_features)
-
-                # Features for the rewarder are distances to centroids
-                rew_features = torch.cdist(next_features, self.reward_decoder_centroids, p=2)
-                rew_features = torch.exp(-rew_features**2)
-
-
-
-            # Get individual sub-rewards
-            rew = []
-            for idr in range(self.reward_decoder_num_rews):
-                rew.append(self.reward_decoder[idr](rew_features[:,idr].view(-1,1)))
-            rew = torch.stack(rew).permute((1,0,2))
-            rew = rew.sum(dim=1) if sum else rew.squeeze(-1)# (B,N)
-            return rew
+                raise ValueError(f'Invalid reward decomp method {self.reward_decomp_method}')
 
     def _update_reward_decoder_centroids(self, features, reset=False):
         if hasattr(self.critic.encoder, "clusterer"):
@@ -374,11 +390,6 @@ class BisimAgentDecomp(object):
 
 
     def update_encoder_spectral(self, obs, action, reward, L, step):
-        # if hasattr(self.critic.encoder, "_encoder"):
-        #     h = self.critic.encoder._encoder(obs)     
-        # else:
-        #     h = self.critic.encoder(obs)    
-
         h = self.critic.encoder(obs)        
 
         # Sample random states across episodes at random
@@ -441,8 +452,7 @@ class BisimAgentDecomp(object):
         L.log('train_ae/transition_loss', loss, step)
 
         # Predict reward directly from latent and action
-        pred_reward = self.decode_reward(h, next_features=next_h)
-        # pred_reward = self.decode_reward(h.detach(), next_features=next_h.detach())
+        pred_reward = self.decode_reward(h, action)
         reward_loss = F.mse_loss(pred_reward, reward)
         loss = loss + reward_loss
         L.log('train_ae/reward_loss', reward_loss, step)
@@ -459,10 +469,9 @@ class BisimAgentDecomp(object):
         if self.vec_reward_from_model:
             with torch.no_grad():
                 h = self.critic.encoder(obs)
-                # next_h = self.critic.encoder(next_obs)
-                #TODO: Why does decode_reward take h and next_h?
-                vec_rewards = self.decode_reward(h, next_features=h, sum=False)
+                vec_rewards = self.decode_reward(h, action, sum=False)
                 residual = true_reward.squeeze(-1) - vec_rewards.sum(dim=-1)
+                # residual = residual - residual
                 vec_rewards = torch.concat([vec_rewards, residual.view(-1,1)], dim=1)
         else:
             # Get vec_rewards from the environment
@@ -472,10 +481,10 @@ class BisimAgentDecomp(object):
 
         # Decomp_edit: Append entropy term to reward vector
         # TODO: Should log_pi calculation be with .no_grad()?
-        with torch.no_grad():
-            _, _, log_pi, _ = self.actor(obs, detach_encoder=True)
-            entropy_reward = self.discount * self.alpha * log_pi
-            vec_rewards = torch.concat([vec_rewards, entropy_reward], dim=1)
+        # with torch.no_grad():
+        _, _, log_pi, _ = self.actor(obs, detach_encoder=True)
+        entropy_reward = self.discount * self.alpha * log_pi
+        vec_rewards = torch.concat([vec_rewards, entropy_reward], dim=1)
 
         L.log('train/batch_reward', true_reward.mean(), step)
 
@@ -487,7 +496,7 @@ class BisimAgentDecomp(object):
         self.decoder_optimizer.zero_grad()
         total_loss.backward()
         self.encoder_optimizer.step()
-        if step % 100 == 0:
+        if step % 20 == 0:
             # Update the decoder periodically
             self.decoder_optimizer.step()
         
@@ -504,11 +513,12 @@ class BisimAgentDecomp(object):
 
 
         # Update the decoder's cluster (if applicable)
-        if hasattr(self, 'reward_decoder_clusterer'):
-            features = self.critic.encoder(obs)
-            reset_clusterer = False
-            # reset_clusterer = (step % 800 == 0)
-            self._update_reward_decoder_centroids(features, reset=reset_clusterer)
+        # TODO: Clustering method
+        # if hasattr(self, 'reward_decoder_clusterer'):
+        #     features = self.critic.encoder(obs)
+        #     reset_clusterer = False
+        #     # reset_clusterer = (step % 800 == 0)
+        #     self._update_reward_decoder_centroids(features, reset=reset_clusterer)
 
         if step % self.actor_update_freq == 0:
             self.update_actor_and_alpha(obs, L, step)

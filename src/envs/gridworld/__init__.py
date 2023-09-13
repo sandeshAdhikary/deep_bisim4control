@@ -14,9 +14,13 @@ def make_gridworld(
         width=84,
         size=10,
         sparse_rewards=True,
+        boxed_env=False,
         environment_kwargs=None
 ):
-    env_id = f'{domain_name}-{task_name}-v1'
+    if boxed_env:
+        env_id = f'{domain_name}-{task_name}-boxed-v1'
+    else:
+        env_id = f'{domain_name}-{task_name}-v1'
 
     max_episode_steps = (episode_length + frame_skip - 1) // frame_skip
 
@@ -43,7 +47,10 @@ def make_gridworld(
     if not env_id in gym.envs.registry:
         
         if from_pixels:
-            entry_point = 'envs.gridworld.gridworld:GridWorldRGB'
+            if boxed_env:
+                entry_point = 'envs.gridworld.gridworld:GridWorldRGB_Boxed'
+            else:
+                entry_point = 'envs.gridworld.gridworld:GridWorldRGB'
         else:
             entry_point = 'envs.gridworld.gridworld:GridWorld'
 

@@ -1,34 +1,33 @@
-project_name: gridworld-circles-decomp-modelrewards
+project_name: gridworld-invariance-exp-dbc-new
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 216
+n_trials: 120
 sampler: random
-distractor: None
 hyperparams:
+  encoder_mode:
+    type: fixed
+    value: 'dbc'
+  distractor:
+    type: fixed
+    value: 'ideal_gas'
+  distractor_type:
+    type: fixed
+    value: 'padding'
+  distractor_img_shrink_factor:
+    type: 'fixed'
+    value: 1.5
   decoder_lr:
     type: categorical
     options: [0.00001, 0.0001, 0.001]
   encoder_lr:
     type: categorical
     options: [0.00001, 0.0001, 0.001]
-  encoder_ortho_loss_reg:
+  distraction_level:
     type: categorical
-    options: [0.00001, 0.0001, 0.001]
-  reward_decoder_num_rews:
+    options: [0.0, 0.2, 0.3, 0.4]
+  seed:
     type: categorical
-    options: [2, 3]
-  encoder_mode:
-    type: categorical
-    options: [spectral, dbc]
-  agent:
-    type: fixed
-    value: bisim_decomp
-  use_cagrad:
-    type: categorical
-    options: [true, false]
-  vec_reward_from_model:
-    type: fixed
-    value: true
+    options: [1,2,3]
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -74,12 +73,12 @@ base_config:
   num_eval_episodes: 5
   num_filters: 32
   num_layers: 4
-  num_train_steps: 15_000
+  num_train_steps: 10_000
   port: 2000
   render: false
   replay_buffer_capacity: 50_000
   resource_files: null
-  reward_decoder_num_rews: 3
+  reward_decoder_num_rews: 1
   save_buffer: false
   save_model: false
   save_tb: true
@@ -89,6 +88,5 @@ base_config:
   total_frames: 1000
   transition_model_type: ''
   work_dir: .
-  distractor: None
   encoder_output_dim: None
-
+  boxed_env: false

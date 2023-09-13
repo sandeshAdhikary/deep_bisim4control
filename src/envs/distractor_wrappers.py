@@ -1,6 +1,6 @@
 from gym import Wrapper
 from utils import plot_to_array
-from PIL import Image
+from PIL import Image, ImageOps
 from einops import rearrange
 
 # Copyright (c) Facebook, Inc. and its affiliates.
@@ -152,21 +152,27 @@ class IdealGas(Planets):
     GRAVITATIONAL_CONSTANT = 0.  # zero means they don't interact
 
 
-
-
 class DistractorWrapper(Wrapper):
+    """
+    The actual environment is overlayed over a distractor background
+    """
 
     def __init__(self, env, distractor_kwargs):
         self.env = env
+        self.distractor_type = distractor_kwargs.pop('distractor_type', 'overlay')
+        # If using padding type distractor
+        self.img_shrink_factor = distractor_kwargs.pop('img_shrink_factor', 2) # Shrink env image by this factor
         self.distractor = IdealGas(**distractor_kwargs)
 
     def reset(self, seed=None, options=None):
         # Reset the distrator env
         self.distractor.reset()
         try:
-            return self.env.reset(seed, options)
+            self.env.reset(seed, options)
         except TypeError:
-            return self.env.reset()
+            self.env.reset()
+        obs = self.render()
+        return rearrange(obs, 'h w c -> c h w')
     
     def step(self, action):
         # Step the distractor env
@@ -180,28 +186,34 @@ class DistractorWrapper(Wrapper):
     
     def render(self, **kwargs):
 
-        # Foreground image from base env
-        try:
-            env_img = self.env.render_rgbarray()
-        except: 
-            env_img = self.env.render()
+        env_img = self.env.get_obs()
+        if self.env.img_mode == 'CHW':
+            env_img = rearrange(env_img, 'c h w -> h w c')
 
         env_img = Image.fromarray(env_img).convert('RGBA')
 
-
-        # Background image from distractor
+        # # Background image from distractor
         distractor_img = self.distractor.render_rgbarray()
         distractor_img = Image.fromarray(distractor_img).convert('RGBA')
         distractor_img = distractor_img.resize((env_img.width, env_img.height))
 
+        if self.distractor_type == 'overlay':
+            full_img = Image.blend(env_img, distractor_img, 0.4).convert('RGB')
+        elif self.distractor_type == 'padding':
+            # Make env_img smaller, and then pad it with distractor_img
+            env_img = env_img.resize((int(env_img.width/self.img_shrink_factor), int(env_img.height/self.img_shrink_factor)))
+            paste_x = (distractor_img.width - env_img.width) // 2
+            paste_y = (distractor_img.height - env_img.height) // 2
+            distractor_img.paste(env_img, (paste_x, paste_y) )
+            full_img = distractor_img.convert('RGB')
+        else:
+            raise ValueError(f"Unknown distractor type: {self.distractor_type}")
 
-        overlay_img = Image.blend(env_img, distractor_img, 0.4).convert('RGB')
-        
-        return np.array(overlay_img)
+        return np.array(full_img)
         
 if __name__ == "__main__":
 
-    from gridworld.gridworld import GridWorldRGB
+    from gridworld.gridworld import GridWorldRGBc
     from reacher.reacher import MOReacherRGB
 
     base_env = GridWorldRGB({

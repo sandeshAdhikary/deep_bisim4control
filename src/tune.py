@@ -6,6 +6,8 @@ import os
 from optuna.integration.wandb import WeightsAndBiasesCallback
 import wandb
 import numpy as np
+from optuna.pruners import BasePruner
+from optuna.trial import TrialState
 
 def objective(trial, hyperparams_config, log_dir):
 
@@ -42,6 +44,24 @@ def objective(trial, hyperparams_config, log_dir):
     return avg_ep_reward
 
 
+class RepeatPruner(BasePruner):
+    """
+    https://stackoverflow.com/questions/58820574/how-to-sample-parameters-without-duplicates-in-optuna
+    """
+    def prune(self, study, trial):
+        # type: (Study, FrozenTrial) -> bool
+
+        trials = study.get_trials(deepcopy=False)
+        
+        numbers=np.array([t.number for t in trials])
+        bool_params= np.array([trial.params==t.params for t in trials]).astype(bool)
+        #Don´t evaluate function if another with same params has been/is being evaluated before this one
+        if np.sum(bool_params)>1:
+            if trial.number>np.min(numbers[bool_params]):
+                return True
+
+        return False
+
 if __name__ == "__main__":
     import argparse
 
@@ -70,7 +90,9 @@ if __name__ == "__main__":
     study = optuna.create_study(direction='maximize', 
                                 study_name=project_name,
                                 storage=hyperparams_config['study_storage_url'],
-                                load_if_exists=True)
+                                load_if_exists=True,
+                                pruner=RepeatPruner(),
+                                )
     
     # Set up tracking callback with wandb
     # wandbc = WeightsAndBiasesCallback(wandb_kwargs={"project": project_name,})

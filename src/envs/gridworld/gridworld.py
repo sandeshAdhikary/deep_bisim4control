@@ -143,7 +143,7 @@ class GridWorld(gym.Env):
 
         # obs = self.pos
         obs = self.get_obs()
-        rew, rew_info = self._get_reward()
+        rew, rew_info = self._get_reward(self.pos)
         truncated = self.steps >= self.max_episode_steps
         terminated = False # No termination condition
         info = rew_info
@@ -154,7 +154,7 @@ class GridWorld(gym.Env):
     def get_obs(self):
         return self.pos
 
-    def _get_reward(self, goal_bandwidth=500.0, obstacle_bandwidth=500.0):
+    def _get_reward(self, pos, goal_bandwidth=500.0, obstacle_bandwidth=500.0):
         """
         Positive reward based on sum of distances to goals
         Negative reward based on sum of distances to obstacles
@@ -165,7 +165,7 @@ class GridWorld(gym.Env):
             rew_info['goal_reward'] = 0.0
             if self.goals is not None:
                 # Get goal reward
-                goal_dists = ((self.pos.reshape(1,2) - self.goals)**2).sum(axis=1)
+                goal_dists = ((pos.reshape(1,2) - self.goals)**2).sum(axis=1)
                 goal_dists = goal_dists/(2*self.size**2)
                 rews = np.exp(-goal_bandwidth*goal_dists)
                 goal_rew = np.dot(rews,self.goal_weights/self.goal_weights.sum()) # sum over goals
@@ -174,7 +174,7 @@ class GridWorld(gym.Env):
             
             rew_info['obstacle_reward'] = 0.0
             if self.obstacles is not None:
-                obstacle_dists = ((self.pos.reshape(1,2) - self.obstacles)**2).sum(axis=1)
+                obstacle_dists = ((pos.reshape(1,2) - self.obstacles)**2).sum(axis=1)
                 obstacle_dists = obstacle_dists/(2*self.size**2)
                 rews = np.exp(-obstacle_bandwidth*obstacle_dists)
                 obstacle_rew = -np.dot(rews,self.obstacle_weights/self.obstacle_weights.sum()) # sum over goals
@@ -185,13 +185,13 @@ class GridWorld(gym.Env):
             rew = 0.0
             rew_info['goal_reward'] = 0.0
             if self.goals is not None:
-                at_goal = np.all(self.pos.reshape(1,2) == self.goals, axis=1)
+                at_goal = np.all(pos.reshape(1,2) == self.goals, axis=1)
                 goal_rew = (at_goal * self.goal_weights).sum()
                 rew_info['goal_reward'] = goal_rew
                 rew += goal_rew
             rew_info['obstacle_reward'] = 0.0
             if self.obstacles is not None:
-                at_obstacle = np.all(self.pos.reshape(1,2) == self.obstacles, axis=1)
+                at_obstacle = np.all(pos.reshape(1,2) == self.obstacles, axis=1)
                 obstacle_rew = -(at_obstacle * self.obstacle_weights).sum()
                 rew_info['obstacle_reward'] = obstacle_rew
                 rew += obstacle_rew
@@ -371,4 +371,69 @@ class GridWorldRGB(gym.ObservationWrapper):
         if obs.shape[0] == obs.shape[1] == self.img_size:
             return obs
         return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size)))
+
+    def _get_reward(self, pos):
+        return super()._get_reward(pos)
     
+
+class GridWorldRGB_Boxed(gym.Wrapper):
+    """
+    This is the same as GridWorldRGB, except when computing rewards.
+    We split up the grid into k equal boxes. When computing the rewards,
+    we compute use the centroid of the box that the agent is in, instead
+    of the agent's actual position.
+    
+    e.g. say we have 20x20 grid, that is split into boxes of size 5x5.
+    So we have 4 rows and 4 columns of boxes. If the agent is in cell
+    (2,3), it is in Box number 1. So it's approx position is the centroid
+    of the first box, which is (3,3)
+    """
+
+    def __init__(self, config):
+        super().__init__(env=GridWorld(config))
+        self.img_size = config.get('img_size', 28)
+        if self.img_mode == 'CHW':
+            obs_shape = (3, self.img_size, self.img_size)
+        elif self.img_mode == 'HWC':
+            obs_shape = (self.img_size, self.img_size, 3)
+        else:
+            raise ValueError(f"Invalid image mode {self.img_mode}")
+
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=obs_shape, dtype=np.uint8)
+        self.box_size = config.get('box_size', 5)
+
+    def reset(self, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+        return obs, info
+        
+    def get_obs(self):
+        # Return the RGB array of the grid
+        obs = self.render_rgbarray()
+        obs = self.resize_obs(obs)
+        if self.img_mode == 'CHW':
+            obs = rearrange(obs, 'h w c -> c h w')
+        return obs
+
+    def resize_obs(self, obs):
+        """
+        Resize the observations if needed
+        """
+        if obs.shape[0] == obs.shape[1] == self.img_size:
+            return obs
+        return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size)))
+
+    def step(self, action):
+        obs, _, truncated, terminated, info = super().step(action)
+        reward = self._get_reward(self._get_approx_pos(self.pos))
+        return obs, reward, truncated, terminated, info
+    
+    def _get_reward(self, pos, goal_bandwidth=500.0, obstacle_bandwidth=500.0):
+        """
+        Positive reward based on sum of distances to goals
+        Negative reward based on sum of distances to obstacles
+        """
+        # Use approx position instead of agent's position
+        return super()._get_reward(self._get_approx_pos(pos))
+    
+    def _get_approx_pos(self, pos):
+        pass
