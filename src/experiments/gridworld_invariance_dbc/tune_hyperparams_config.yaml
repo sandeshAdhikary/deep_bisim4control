@@ -1,7 +1,7 @@
 project_name: gridworld-invariance-exp-dbc-new
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 120
+n_trials: 3000
 sampler: random
 hyperparams:
   encoder_mode:
@@ -24,7 +24,19 @@ hyperparams:
     options: [0.00001, 0.0001, 0.001]
   distraction_level:
     type: categorical
-    options: [0.0, 0.2, 0.3, 0.4]
+    options: [0.0, 0.2, 0.3]
+  hidden_dim:
+    type: categorical
+    options: [256, 512]
+  actor_lr:
+    type: categorical
+    options: [0.00001, 0.0001, 0.001]
+  critic_lr:
+    type: categorical
+    options: [0.00001, 0.0001, 0.001]
+  encoder_feature_dim:
+    type: categorical
+    options: [50, 100]
   seed:
     type: categorical
     options: [1,2,3]
