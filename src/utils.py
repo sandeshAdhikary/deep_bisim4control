@@ -224,10 +224,10 @@ class FrameStack(gym.Wrapper):
             obs, reward, done, info = out
             truncated = terminated = done
         elif len(out) == 5:
-            obs, reward, truncated, terminated, info = out
+            obs, reward, terminated, truncated, info = out
             done = terminated
         self._frames.append(obs)
-        return self._get_obs(), reward,  truncated, terminated, info
+        return self._get_obs(), reward,  terminated, truncated, info
 
     def _get_obs(self):
         assert len(self._frames) == self._k

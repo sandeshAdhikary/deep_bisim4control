@@ -455,7 +455,7 @@ def run_train(args=None):
             from_pixels=args.encoder_type.startswith('pixel'),
             height=args.image_size,
             width=args.image_size,
-            frame_skip=args.action_repeat
+            frame_skip=args.action_repeat,
         )
         env.seed(args.seed)
 
@@ -470,13 +470,13 @@ def run_train(args=None):
             from_pixels=args.encoder_type.startswith('pixel'),
             height=args.image_size,
             width=args.image_size,
-            frame_skip=args.action_repeat
+            frame_skip=args.action_repeat,
         )
         eval_callback = None
 
     if args.distractor in ['ideal_gas']:
         distractor_kwargs = {
-            'num_bodies': int(args.distraction_level*10),
+            'num_bodies': int(args.distraction_level*20),
             'num_dimensions': 2,
             'distractor_type': args.distractor_type,
             'img_shrink_factor': args.distractor_img_shrink_factor
@@ -598,7 +598,7 @@ def run_train(args=None):
         curr_reward = reward
         next_obs, reward, terminated, truncated, info = env.step(action)
         # TODO: Should done be terminated or truncated?
-        done = terminated
+        done = terminated or truncated
         # allow infinit bootstrap
         max_ep_steps = None
         if hasattr(env, "_max_episode_steps"):

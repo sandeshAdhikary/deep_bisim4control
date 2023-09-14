@@ -1,12 +1,15 @@
-project_name: gridworld-invariance-exp-dbc-v2
+project_name: cheetah-invariance-exp-spectral
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 500
+n_trials: 1300
 sampler: random
 hyperparams:
   encoder_mode:
     type: fixed
-    value: 'dbc'
+    value: 'spectral'
+  encoder_ortho_loss:
+    type: categorical
+    options: [0.0001, 0.001, 0.1]
   distractor:
     type: fixed
     value: 'ideal_gas'
@@ -15,7 +18,7 @@ hyperparams:
     value: 'padding'
   distractor_img_shrink_factor:
     type: 'fixed'
-    value: 2.0
+    value: 1.5
   decoder_lr:
     type: categorical
     options: [0.00001, 0.0001, 0.001]
@@ -24,13 +27,13 @@ hyperparams:
     options: [0.00001, 0.0001, 0.001]
   distraction_level:
     type: categorical
-    options: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    options: [0.0, 0.2, 0.4, 0.6]
   num_layers:
     type: categorical
     options: [4, 8, 10]
   seed:
     type: categorical
-    options: [1, 2, 3]
+    options: [1,2,3]
 base_config:
   action_repeat: 1
   actor_beta: 0.9
@@ -52,7 +55,7 @@ base_config:
   decoder_update_freq: 1
   decoder_weight_lambda: 0.0
   discount: 0.99
-  domain_name: gridworld
+  domain_name: cheetah
   encoder_feature_dim: 50
   encoder_kernel_bandwidth: auto
   encoder_lr: 0.001
@@ -62,7 +65,7 @@ base_config:
   encoder_stride: 1
   encoder_tau: 0.005
   encoder_type: pixel
-  eval_freq: 10
+  eval_freq: 2
   eval_resource_files: null
   frame_stack: 3
   hidden_dim: 256
@@ -73,10 +76,10 @@ base_config:
   k: 3
   load_encoder: null
   logger: wandb
-  num_eval_episodes: 5
+  num_eval_episodes: 1
   num_filters: 32
   num_layers: 4
-  num_train_steps: 20_000
+  num_train_steps: 15_000
   port: 2000
   render: false
   replay_buffer_capacity: 50_000
@@ -87,7 +90,7 @@ base_config:
   save_tb: true
   save_video: false
   seed: 1
-  task_name: simple
+  task_name: run
   total_frames: 1000
   transition_model_type: ''
   work_dir: .

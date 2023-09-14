@@ -179,17 +179,19 @@ class DistractorWrapper(Wrapper):
     def step(self, action):
         # Step the distractor env
         self.distractor.step()
-        _, rew, info, terminated, truncated =  self.env.step(action)
-
+        _, rew, terminated, truncated, info =  self.env.step(action)
         obs_distract = self.render()
         obs_distract = rearrange(obs_distract, 'h w c -> c h w')
-        return obs_distract, rew, info, terminated, truncated
+        return obs_distract, rew, terminated, truncated, info
         
     
     def render(self, **kwargs):
+        try:
+            env_img = self.env.get_obs()
+        except:
+            env_img = self.env.render(**kwargs)
 
-        env_img = self.env.get_obs()
-        if self.env.img_mode == 'CHW':
+        if hasattr(self.env, "img_mode") and self.env.img_mode == 'CHW':
             env_img = rearrange(env_img, 'c h w -> h w c')
 
         env_img = Image.fromarray(env_img).convert('RGBA')

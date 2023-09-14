@@ -162,7 +162,7 @@ class GridWorld(gym.Env):
         terminated = np.any(np.linalg.norm(self.pos - self.goals, axis=1) < 1e-1) # if close to any goal, terminate
         info = rew_info
 
-        return obs, rew, truncated, terminated, info
+        return obs, rew, terminated, truncated, info
     
 
     def get_obs(self):
@@ -448,7 +448,7 @@ class GridWorldRGB_Boxed(gym.Wrapper):
     def step(self, action):
         obs, _, truncated, terminated, info = super().step(action)
         reward = self._get_reward(self._get_approx_pos(self.pos))
-        return obs, reward, truncated, terminated, info
+        return obs, reward, terminated, truncated, info
     
     def _get_reward(self, pos, goal_bandwidth=500.0, obstacle_bandwidth=500.0):
         """

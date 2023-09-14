@@ -15,7 +15,7 @@ def make(
     width=84,
     camera_id=0,
     frame_skip=1,
-    episode_length=1000,
+    episode_length=500,
     environment_kwargs=None
 ):
     env_id = 'dmc_%s_%s_%s-v1' % (domain_name, task_name, seed)
@@ -49,4 +49,4 @@ def make(
             },
             max_episode_steps=max_episode_steps
         )
-    return gym.make(env_id)
+    return gym.make(env_id, max_episode_steps=max_episode_steps)
