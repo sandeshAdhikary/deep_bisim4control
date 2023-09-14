@@ -1,7 +1,7 @@
-project_name: gridworld-invariance-exp-dbc-new
+project_name: gridworld-invariance-exp-dbc
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
-n_trials: 3000
+n_trials: 500
 sampler: random
 hyperparams:
   encoder_mode:
@@ -24,19 +24,10 @@ hyperparams:
     options: [0.00001, 0.0001, 0.001]
   distraction_level:
     type: categorical
-    options: [0.0, 0.2, 0.3]
-  hidden_dim:
+    options: [0.0, 0.2, 0.4, 0.6]
+  num_layers:
     type: categorical
-    options: [256, 512]
-  actor_lr:
-    type: categorical
-    options: [0.00001, 0.0001, 0.001]
-  critic_lr:
-    type: categorical
-    options: [0.00001, 0.0001, 0.001]
-  encoder_feature_dim:
-    type: categorical
-    options: [50, 100]
+    options: [4, 8, 10]
   seed:
     type: categorical
     options: [1,2,3]
@@ -85,7 +76,7 @@ base_config:
   num_eval_episodes: 5
   num_filters: 32
   num_layers: 4
-  num_train_steps: 10_000
+  num_train_steps: 15_000
   port: 2000
   render: false
   replay_buffer_capacity: 50_000
@@ -96,7 +87,7 @@ base_config:
   save_tb: true
   save_video: false
   seed: 1
-  task_name: circles
+  task_name: simple
   total_frames: 1000
   transition_model_type: ''
   work_dir: .
