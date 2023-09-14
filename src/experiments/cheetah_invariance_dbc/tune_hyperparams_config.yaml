@@ -24,7 +24,7 @@ hyperparams:
     options: [0.00001, 0.0001, 0.001]
   distraction_level:
     type: categorical
-    options: [0.0, 0.2, 0.4, 0.6]
+    options: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
   num_layers:
     type: categorical
     options: [4, 8, 10]
