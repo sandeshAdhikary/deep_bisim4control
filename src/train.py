@@ -31,20 +31,21 @@ from envs.dmc2gym.callbacks import DMCCallback
 from envs.distractor_wrappers import DistractorWrapper
 import os
 from copy import copy
+from einops import rearrange
 
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
     parser.add_argument('--domain_name', default='cheetah')
     parser.add_argument('--task_name', default='run')
-    parser.add_argument('--image_size', default=84, type=int)
+    parser.add_argument('--image_size', default=88, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
     parser.add_argument('--resource_files', type=str)
     parser.add_argument('--eval_resource_files', type=str)
     parser.add_argument('--img_source', default=None, type=str, choices=['color', 'noise', 'images', 'video', 'none'])
     parser.add_argument('--total_frames', default=1000, type=int)
-    parser.add_argument('--distractor', default='None', choices=['ideal_gas'])
+    parser.add_argument('--distractor', default='None', choices=['ideal_gas', "None"])
     parser.add_argument('--distractor_type', default='None', choices=['overlay', 'padding'])
     parser.add_argument('--distractor_img_shrink_factor', default=1.3, type=float)
     parser.add_argument('--distraction_level', default=0.2, type=float)
@@ -151,8 +152,9 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
         while not done:
             with utils.eval_mode(agent):
                 action = agent.select_action(obs)
+            if i == 0:
+                obses.append(obs)
 
-            obses.append(obs)
             if embed_viz_dir:
                 with torch.no_grad():
                     values.append(min(agent.critic(torch.Tensor(obs).to(device).unsqueeze(0), torch.Tensor(action).to(device).unsqueeze(0))).item())
@@ -192,6 +194,7 @@ def evaluate(env, agent, video, num_episodes, L, step, device=None, embed_viz_di
     obses = np.stack(obses)
     if len(obses.shape) == 4:
         # Image observations
+        obses = rearrange(obses, 'b (f c) h w -> b c h (f w)', f=len(env._frames)) # Stack frames horizontally
         L.log_video('eval/obs_video', obses[:max_obs_video_frames, :], image_mode='chw', step=step)
 
     L.dump(step)
@@ -400,7 +403,7 @@ def run_train(args=None):
         eval_env = env
         eval_callback = None
     elif args.domain_name == 'gridworld':
-        size = 20
+        size = 10
         env = make_gridworld(
             domain_name=args.domain_name,
             task_name=args.task_name,
@@ -473,7 +476,7 @@ def run_train(args=None):
 
     if args.distractor in ['ideal_gas']:
         distractor_kwargs = {
-            'num_bodies': int(args.distraction_level*40),
+            'num_bodies': int(args.distraction_level*10),
             'num_dimensions': 2,
             'distractor_type': args.distractor_type,
             'img_shrink_factor': args.distractor_img_shrink_factor

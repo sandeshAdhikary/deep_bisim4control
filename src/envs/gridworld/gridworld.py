@@ -28,7 +28,12 @@ class GridWorld(gym.Env):
         self.action_mode = config.get('action_mode', 'discrete')
         self.img_mode = config.get('img_mode', 'CHW')
         self.random_init = config.get('random_init', False)
-
+        
+        # Fixed params
+        self.cell_size = 10
+        self.goal_scale = 5.
+        self.obstacle_scale = 5.
+        
         assert self.img_mode in ['CHW', 'HWC']
 
         self.height = self.width = self.size = size
@@ -36,8 +41,8 @@ class GridWorld(gym.Env):
             # Action space: [0,1,2,3] = [right, left, up, down]
             self.action_space = gym.spaces.Discrete(4)
         elif self.action_mode == 'continuous':
-            # Action space: [-1, 1] : binned between 4 actions [right, left, up, down]
-            self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1,), dtype=np.float32)
+            # Action space: 2D action clipped within [-1,1]. Defines the amount of movement in each direction
+            self.action_space = gym.spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
         else:
             raise ValueError(f"Invalid action mode {self.action_mode}")
         
@@ -79,6 +84,7 @@ class GridWorld(gym.Env):
             init_pos = np.random.randint(0, self.size, size=2) # If random_init, select random init_pos
         
         self.pos = init_pos if (init_pos is not None) else copy(self.default_init_pos) # Else, use default init_pos
+        self.pos = self.pos.astype(np.float32)
 
         if not isinstance(self.pos, np.ndarray):
             self.pos = np.array(self.pos)
@@ -120,32 +126,40 @@ class GridWorld(gym.Env):
                 raise ValueError("Invalid action")
         elif self.action_mode == 'continuous':
 
-            # Map action from [-1,1] to [0,4]
-            action = (action + 1) * 2
+            action = np.round(np.clip(action, -1, 1))
 
-            if 0 < action <= 1:
-                # right
-                self.pos[1] += 1
-            elif 1 < action <= 2:
-                # left
-                self.pos[1] -= 1
-            elif 2 < action <= 3:
-                # up
-                self.pos[0] -= 1
-            elif 3 < action <= 4:
-                # down
-                self.pos[0] += 1
+            self.pos[0] += action[0]
+            # self.pos[0] = int(self.pos[0])
+            self.pos[1] += action[1]
+            # self.pos[1] = int(self.pos[1])
+
+            # # Map action from [-1,1] to [0,4]
+            # action = (action + 1) * 2
+
+            # if 0 < action <= 1:
+            #     # right
+            #     self.pos[1] += 1
+            # elif 1 < action <= 2:
+            #     # left
+            #     self.pos[1] -= 1
+            # elif 2 < action <= 3:
+            #     # up
+            #     self.pos[0] -= 1
+            # elif 3 < action <= 4:
+            #     # down
+            #     self.pos[0] += 1
         else:
             raise ValueError(f"Invalid action mode {self.action_mode}")
 
 
-        self.pos = np.clip(self.pos, [0,0], [self.width-1, self.height-1])
+        self.pos = np.clip(self.pos, [1,1], [self.width-1, self.height-1])
 
         # obs = self.pos
         obs = self.get_obs()
         rew, rew_info = self._get_reward(self.pos)
         truncated = self.steps >= self.max_episode_steps
-        terminated = False # No termination condition
+        # terminated = False # No termination condition
+        terminated = np.any(np.linalg.norm(self.pos - self.goals, axis=1) < 1e-1) # if close to any goal, terminate
         info = rew_info
 
         return obs, rew, truncated, terminated, info
@@ -169,6 +183,7 @@ class GridWorld(gym.Env):
                 goal_dists = goal_dists/(2*self.size**2)
                 rews = np.exp(-goal_bandwidth*goal_dists)
                 goal_rew = np.dot(rews,self.goal_weights/self.goal_weights.sum()) # sum over goals
+                goal_rew = goal_rew * self.goal_scale
                 rew_info['goal_reward'] = goal_rew
                 rew += goal_rew
             
@@ -178,6 +193,7 @@ class GridWorld(gym.Env):
                 obstacle_dists = obstacle_dists/(2*self.size**2)
                 rews = np.exp(-obstacle_bandwidth*obstacle_dists)
                 obstacle_rew = -np.dot(rews,self.obstacle_weights/self.obstacle_weights.sum()) # sum over goals
+                obstacle_rew = obstacle_rew * self.obstacle_scale
                 rew_info['obstacle_reward'] = obstacle_rew
                 rew += obstacle_rew
 
@@ -186,18 +202,25 @@ class GridWorld(gym.Env):
             rew_info['goal_reward'] = 0.0
             if self.goals is not None:
                 at_goal = np.all(pos.reshape(1,2) == self.goals, axis=1)
-                goal_rew = (at_goal * self.goal_weights).sum()
+                goal_rew = (at_goal * self.goal_weights).sum() * self.goal_scale
                 rew_info['goal_reward'] = goal_rew
                 rew += goal_rew
             rew_info['obstacle_reward'] = 0.0
             if self.obstacles is not None:
                 at_obstacle = np.all(pos.reshape(1,2) == self.obstacles, axis=1)
-                obstacle_rew = -(at_obstacle * self.obstacle_weights).sum()
+                obstacle_rew = -(at_obstacle * self.obstacle_weights).sum() * self.obstacle_scale
                 rew_info['obstacle_reward'] = obstacle_rew
                 rew += obstacle_rew
         else:
             raise ValueError("Invalid reward mode")
         
+
+        # Add penalty for each step
+        rew -= 1.
+        rew_info['goal_reward'] -= 1.
+        rew_info['obstacle_reward'] -= 1.
+
+        # Create vec_reward
         rew_info['vec_reward'] = [rew_info[x] for x in ['goal_reward', 'obstacle_reward']]
 
         return rew, rew_info
@@ -242,24 +265,25 @@ class GridWorld(gym.Env):
     def pre_render_rgbarray(self):
 
         # Create a blank image
-        self.cell_size = 10
-        image = Image.new("RGB", (self.cell_size*self.size + 2*self.cell_size, self.cell_size*self.size + 2*self.cell_size), color=(0, 0, 0))
+        image_size = self.cell_size*self.size + 2*self.cell_size
+        image_size = image_size + (image_size % 16) # Make sure image size is a multiple of 16
+        image = Image.new("RGB", (image_size, image_size), color=(0, 0, 0))
 
         # Draw some lines
         draw = ImageDraw.Draw(image)
         y_start = self.cell_size
-        y_end = image.height - self.cell_size
+        # y_end = image.height - self.cell_size
 
-        for x in range(self.cell_size, image.width, self.cell_size):
-            line = ((x, y_start), (x, y_end))
-            draw.line(line, fill='#b3adad')
+        # for x in range(self.cell_size, image.width, self.cell_size):
+        #     line = ((x, y_start), (x, y_end))
+        #     draw.line(line, fill='#b3adad')
 
         x_start = self.cell_size
-        x_end = image.width - self.cell_size
+        # x_end = image.width - self.cell_size
 
-        for y in range(self.cell_size, image.height, self.cell_size):
-            line = ((x_start, y), (x_end, y))
-            draw.line(line, fill='#b3adad')
+        # for y in range(self.cell_size, image.height, self.cell_size):
+        #     line = ((x_start, y), (x_end, y))
+        #     draw.line(line, fill='#b3adad')
 
         if self.goals is not None:
             for goal in self.goals:
@@ -285,7 +309,6 @@ class GridWorld(gym.Env):
 
     def render_heatmap(self, heatmap, color_mode='discrete'):
         assert len(heatmap) == self.size
-        self.cell_size = 10
 
         image = Image.new("RGB", (self.cell_size*self.size + 2*self.cell_size, self.cell_size*self.size + 2*self.cell_size), color=(255, 255, 255))
         draw = ImageDraw.Draw(image)
@@ -370,7 +393,7 @@ class GridWorldRGB(gym.ObservationWrapper):
         """
         if obs.shape[0] == obs.shape[1] == self.img_size:
             return obs
-        return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size)))
+        return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size), Image.ANTIALIAS))
 
     def _get_reward(self, pos):
         return super()._get_reward(pos)

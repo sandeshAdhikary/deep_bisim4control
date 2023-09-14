@@ -71,7 +71,6 @@ class BisimAgent(object):
         self.encoder_kernel_bandwidth = encoder_kernel_bandwidth
         self.encoder_normalize_loss = encoder_normalize_loss
         self.encoder_ortho_loss_reg = encoder_ortho_loss_reg
-
         self.actor = Actor(
             obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, actor_log_std_min, actor_log_std_max,

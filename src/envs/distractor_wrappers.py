@@ -52,6 +52,8 @@ class Planets(object):
         return np.concatenate((self.body_positions, self.body_velocities), axis=1)  # (N, 2D)
 
     def step(self):
+        if self.num_bodies < 1:
+            return None
 
         # Helper functions since ode solver requires flattened inputs
         def flatten(positions, velocities):  # positions shape (N, D); velocities shape (N, D)

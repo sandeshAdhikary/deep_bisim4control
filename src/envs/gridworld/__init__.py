@@ -179,8 +179,8 @@ def get_goals_and_obstacles(size, mode='diag'):
         obstacles = None
         obstacle_weights = None
     elif mode == 'simple':
-        goals = np.array([0,0])
-        obstacles = np.array([9, 9])
+        goals = np.array([2,3])
+        obstacles = np.array([5, 5])
         goal_weights = [1]*len(goals)
         obstacle_weights = [1]*len(obstacles)
     else:
