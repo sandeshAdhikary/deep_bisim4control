@@ -11,13 +11,13 @@ from matplotlib.patches import Rectangle
 api = wandb.Api()
 encoder_modes = ['dbc', 'spectral']
 img_shrink_factor = 1.5
-distract_levels = [0.0, 0.4, 0.6]
-domain = 'gridworld'
+distract_levels = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+domain = 'cheetah'
 
 for encoder_mode in encoder_modes:
 
 
-    entity, project = "adhikary-sandesh", f"{domain}-invariance-exp-{encoder_mode}-v1"
+    entity, project = "adhikary-sandesh", f"{domain}-invariance-exp-{encoder_mode}-v2"
     runs = api.runs(entity + "/" + project)
 
 
@@ -65,7 +65,8 @@ for encoder_mode in encoder_modes:
     obs_grads = features.copy()
     for d in data:
         for distract_level in distract_levels:
-            if d['config']['distraction_level'] == distract_level:
+            current_distract_level = d['config'].get('distraction_level')
+            if current_distract_level == distract_level:
                 score = d['summary'].get('train/batch_reward')
                 if score is not None:
                     if score > best_scores[distract_level]:
@@ -81,7 +82,7 @@ for encoder_mode in encoder_modes:
         ax.plot(range(len(features_err)), [0]*len(features_err))
         ax.fill_between(range(len(features_err)), -features_err, features_err, label=f"{level}", alpha=0.2)
     ax.legend()
-    ax.set_ylim(-3.0, 3.0)
+    ax.set_ylim(-2.0, 2.0)
     fig.savefig(f'features_{encoder_mode}.png')
     plt.close()
 
@@ -135,7 +136,7 @@ for encoder_mode in encoder_modes:
     axes[-2].set_title('Proportion of grad in padding')
     axes[-2].set_xlabel('Distraction level')
     axes[-2].set_ylabel('Proportion of grad in padding')
-    axes[-2].set_ylim(0.0, 0.2)
+    axes[-2].set_ylim(0.0, 0.7)
 
     axes[-1].plot(distract_levels, wass_dists, '-o')
     axes[-1].set_title('Wass. distances from 0.0')

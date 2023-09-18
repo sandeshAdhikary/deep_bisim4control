@@ -14,33 +14,39 @@ class DMCCallback():
     def __init__(self, config=None):
         self.env = None
         config = config or {}
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'eval_actions.pkl'), 'rb') as f:
-            self.eval_actions = pickle.load(f)
-        self.eval_actions = self.eval_actions[:100]
+        self.domain_name = config.get('domain_name')
+        self.task_name = config.get('task_name')
 
+        assert not any([self.domain_name is None, self.task_name is None]), "Must specify domain_name and task_name in config"
+
+        self.eval_actions_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'eval_actions_{self.domain_name}_{self.task_name}.pkl')
+        self.set_eval_actions()
+        
+    def set_eval_actions(self):
+        try:
+            with open(self.eval_actions_file, 'rb') as f:
+                self.eval_actions = pickle.load(f)
+            self.eval_actions = self.eval_actions
+        except FileNotFoundError:
+            self.eval_actions = None
 
     def set_env(self, env):
         self.env = env
-        # Save a fixed sequence of actions for evaluation:
-        # eval_actions = [self.env.action_space.sample() for _ in range(100)]
-        # with open('eval_actions.pkl', 'wb') as f:
-        #     pickle.dump(eval_actions, f)
+
+        if self.eval_actions is None:
+            # Save a fixed sequence of actions for evaluation:
+            eval_actions = [self.env.action_space.sample() for _ in range(300)]
+            with open(self.eval_actions_file, 'wb') as f:
+                pickle.dump(eval_actions, f)
+            self.set_eval_actions()
 
     def __call__(self, agent, logger, step):
         assert self.env is not None, "Environment not set!"
-
-        # obs, _ = self.env.reset()
-        # done = False
-        # all_obs = []
-        # while not done:
-        #     action = agent.act(obs)
-        #     obs, _, done, _ = self.env.step(action)
-        #     all_obs.append(obs)
-
         self.log_artifacts(agent, logger, step)
 
     def log_artifacts(self, agent, logger, step):
         actions = self.eval_actions
+        assert actions is not None, "Eval actions not set!"
         # Log features
         obs = self.env.reset()
         all_obs = [torch.from_numpy(obs).to(agent.device).to(torch.float32)]

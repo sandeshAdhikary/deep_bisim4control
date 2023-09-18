@@ -472,7 +472,10 @@ def run_train(args=None):
             width=args.image_size,
             frame_skip=args.action_repeat,
         )
-        eval_callback = DMCCallback()
+        eval_callback = DMCCallback({
+            'domain_name': args.domain_name,
+            'task_name': args.task_name,
+        })
 
     if args.distractor in ['ideal_gas']:
         distractor_kwargs = {
