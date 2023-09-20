@@ -1,4 +1,4 @@
-project_name: gridworld-invariance-exp-spectral
+project_name: gridworld-invariance-exp-spectral-v2
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 1300
@@ -18,7 +18,7 @@ hyperparams:
     value: 'padding'
   distractor_img_shrink_factor:
     type: 'fixed'
-    value: 1.5
+    value: 2.0
   decoder_lr:
     type: categorical
     options: [0.00001, 0.0001, 0.001]
@@ -27,7 +27,7 @@ hyperparams:
     options: [0.00001, 0.0001, 0.001]
   distraction_level:
     type: categorical
-    options: [0.0, 0.2, 0.4, 0.6]
+    options: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
   num_layers:
     type: categorical
     options: [4, 8, 10]
@@ -79,10 +79,10 @@ base_config:
   num_eval_episodes: 5
   num_filters: 32
   num_layers: 4
-  num_train_steps: 15_000
+  num_train_steps: 20_000
   port: 2000
   render: false
-  replay_buffer_capacity: 100_000
+  replay_buffer_capacity: 50_000
   resource_files: null
   reward_decoder_num_rews: 1
   save_buffer: false

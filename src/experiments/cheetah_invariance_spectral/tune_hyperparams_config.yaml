@@ -1,4 +1,4 @@
-project_name: cheetah-invariance-exp-spectral
+project_name: cheetah-invariance-exp-spectral-v2
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 1300

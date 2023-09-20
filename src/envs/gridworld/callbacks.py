@@ -55,7 +55,6 @@ class GridWorldEvalCallback():
 
         # Get heatmap for all embeddings
         heatmap = self.get_heatmaps(all_poses, features, color_mode='continuous')
-        # heatmap = torch.from_numpy(heatmap)
         logger.log_image('eval/embeddings', heatmap, step, image_mode='chw')
 
         self.log_artifacts(agent, logger, step)

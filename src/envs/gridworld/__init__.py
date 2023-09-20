@@ -15,7 +15,6 @@ def make_gridworld(
         size=10,
         sparse_rewards=True,
         boxed_env=False,
-        environment_kwargs=None
 ):
     if boxed_env:
         env_id = f'{domain_name}-{task_name}-boxed-v1'
@@ -181,8 +180,8 @@ def get_goals_and_obstacles(size, mode='diag'):
     elif mode == 'simple':
         goals = np.array([2,3])
         obstacles = np.array([5, 5])
-        goal_weights = [1]*len(goals)
-        obstacle_weights = [1]*len(obstacles)
+        goal_weights = [1.]
+        obstacle_weights = [1.]
     else:
         raise ValueError(f"Mode {mode} not recognized")
 

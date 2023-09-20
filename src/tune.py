@@ -6,13 +6,14 @@ import os
 from optuna.integration.wandb import WeightsAndBiasesCallback
 import wandb
 import numpy as np
-from optuna.pruners import BasePruner
+from optuna.pruners import BasePruner, MedianPruner
 from optuna.trial import TrialState
+from optuna.samplers import RandomSampler, GridSampler
 
-def objective(trial, hyperparams_config, log_dir):
+def objective(trial, hyperparams_config, log_dir, callback=None):
 
-    # Delete synced wandb files to prevent storage overflow
-    os.system(f'echo "y" | wandb sync --clean --clean-old-hours 1')
+    if callback is not None:
+        callback.before_trial()
 
     # config = yaml.safe_load(open(hyperparams_config['base_config'], 'r'))
     config = hyperparams_config['base_config']
@@ -33,6 +34,9 @@ def objective(trial, hyperparams_config, log_dir):
             # Update base config with fixed value
             config[param] = param_config['value']
 
+    if trial.should_prune():
+        raise optuna.TrialPruned()
+
     config['logger_project'] = hyperparams_config['project_name']
     config['work_dir'] = os.path.join(log_dir, f"trial_{str(trial._trial_id)}")
     try:
@@ -41,7 +45,26 @@ def objective(trial, hyperparams_config, log_dir):
         print(e)
         avg_ep_reward = np.nan
 
+    if callback is not None:
+        callback.after_trial()
+
     return avg_ep_reward
+
+class TuningCallback():
+    def __init__(self, config):
+        self.delete_old_studies = config.get('delete_old_studies', False)
+        self.project_name = config.get('project_name', None)
+
+    def before_trial(self):
+        pass
+
+    def after_trial(self):
+        
+        # Delete synced wandb files to prevent storage overflow
+        if self.delete_old_studies and (self.project_name is not None):
+            os.system(f'echo "y" | wandb sync --project {project_name} --clean --clean-old-hours 1')
+
+        
 
 
 class RepeatPruner(BasePruner):
@@ -53,20 +76,34 @@ class RepeatPruner(BasePruner):
 
         trials = study.get_trials(deepcopy=False)
         
-        numbers=np.array([t.number for t in trials])
-        bool_params= np.array([trial.params==t.params for t in trials]).astype(bool)
-        #Don´t evaluate function if another with same params has been/is being evaluated before this one
-        if np.sum(bool_params)>1:
+        numbers=np.array([t.number for t in trials if t.state in [TrialState.COMPLETE, 
+                                                                                   TrialState.PRUNED,
+                                                                                   TrialState.RUNNING,
+                                                                                   ]])
+
+        # Check if there exists trials with params from complete,pruned or running trials
+        successful_trials = [trial.params==t.params for t in trials if t.state in [TrialState.COMPLETE, 
+                                                                                   TrialState.PRUNED,
+                                                                                   TrialState.RUNNING,
+                                                                                   ]]
+
+        bool_params= np.array(successful_trials).astype(bool)
+        # Don´t evaluate function if another with same params has been/is being evaluated before this one
+        if np.sum(bool_params)>0:
             if trial.number>np.min(numbers[bool_params]):
                 return True
 
         return False
+
+
+
 
 if __name__ == "__main__":
     import argparse
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--config', type=str, help="Path to hyperparams config file")
+    argparser.add_argument('--delete-old-studies', action='store_true', help="Delete old studies")
     args = argparser.parse_args()
 
     # hyperparam_config_file = 'tune_hyperparams_config.yaml
@@ -75,8 +112,6 @@ if __name__ == "__main__":
     log_dir = os.path.join(hyperparams_config['log_dir'], project_name)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-
-    partial_objective = partial(objective, hyperparams_config=hyperparams_config, log_dir=log_dir)
     
     # Set the sampler
     sampler_type = hyperparams_config['sampler']
@@ -91,11 +126,13 @@ if __name__ == "__main__":
                                 study_name=project_name,
                                 storage=hyperparams_config['study_storage_url'],
                                 load_if_exists=True,
-                                pruner=RepeatPruner(),
+                                pruner=RepeatPruner()
                                 )
     
-    # Set up tracking callback with wandb
-    # wandbc = WeightsAndBiasesCallback(wandb_kwargs={"project": project_name,})
+    tuning_callback = TuningCallback(config={
+        'delete_old_studies': args.delete_old_studies,
+        'project_name': project_name,
+    })
 
-    # study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'], callbacks=[wandbc])
+    partial_objective = partial(objective, hyperparams_config=hyperparams_config, log_dir=log_dir, callback=tuning_callback)
     study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'])

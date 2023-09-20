@@ -15,6 +15,7 @@ import numpy as np
 from termcolor import colored
 import wandb
 from einops import rearrange
+import shutil
 
 FORMAT_CONFIG = {
     'rl': {
@@ -113,11 +114,9 @@ class Logger(object):
                 shutil.rmtree(tb_dir)
             self._sw = SummaryWriter(tb_dir)
         elif self.sw_type == 'wandb':
-            # wandb.login()
             project = config.get('project', 'bisim_project')
             tracked_params = config.get('tracked_params', {})
             self._sw = wandb.init(project=project, dir=self._log_dir, config=tracked_params)
-            # pass
         else:
             self._sw = None
 
@@ -176,6 +175,29 @@ class Logger(object):
             table = wandb.Table(data=list(data), columns=list(range(data.shape[1])))
             self._sw.log({key: table}, step=step)
 
+    def _try_sw_log_agent(self, key, agent, step):
+        from datetime import datetime
+        if self.sw_type == 'wandb':
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            temp_dir = os.path.join(self._log_dir, 'temp', f'{self._sw.entity}-{self._sw.name}-models-{timestamp}')
+            if not os.path.exists(temp_dir):
+                os.makedirs(temp_dir)
+            torch.save(
+                agent.actor.state_dict(), os.path.join(temp_dir,'actor.pt')
+            )
+            torch.save(
+                agent.critic.state_dict(), os.path.join(temp_dir,'critic.pt')
+            )
+            torch.save(
+                agent.reward_decoder.state_dict(), os.path.join(temp_dir,'reward_decoder.pt')
+            )
+
+            artifact = wandb.Artifact(key, type="model")
+            artifact.add_dir(temp_dir)
+            self._sw.log_artifact(artifact)
+
+            # Delete the temp folder
+            shutil.rmtree(temp_dir)
 
     def log(self, key, value, step, n=1):
         assert key.startswith('train') or key.startswith('eval')
@@ -209,6 +231,9 @@ class Logger(object):
     def log_table(self, key, data, step):
         assert key.startswith('train') or key.startswith('eval')
         self._try_sw_log_table(key, data, step)
+    
+    def log_agent(self, key, model, step):
+        self._try_sw_log_agent(key, model, step)
 
     def dump(self, step):
         self._train_mg.dump(step, 'train')

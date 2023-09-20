@@ -19,8 +19,8 @@ class GridWorld(gym.Env):
         goals= config['goals']
         obstacles=config['obstacles']
         init_pos=config.get('init_pos', None)
-        goal_weights=config['goal_weights']
-        obstacle_weights=config['obstacle_weights']
+        goal_weights=config.get('goal_weights', [1.0]*len(goals))
+        obstacle_weights=config.get('obstacle_weights', [1.0]*len(goals))
         reward_mode=config.get('reward_mode', 'sparse')
         seed=config.get('seed', 321)
         self.rgb_image_bkg = None
@@ -28,6 +28,7 @@ class GridWorld(gym.Env):
         self.action_mode = config.get('action_mode', 'discrete')
         self.img_mode = config.get('img_mode', 'CHW')
         self.random_init = config.get('random_init', False)
+        self.sticky_radius = config.get('sticky_radius', 0.0)
         
         # Fixed params
         self.cell_size = 10
@@ -151,6 +152,9 @@ class GridWorld(gym.Env):
         else:
             raise ValueError(f"Invalid action mode {self.action_mode}")
 
+        # if self.sticky_radius > 0:
+        #     self.pos = (self.pos // self.sticky_radius) * self.sticky_radius
+        #     self.pos += self.sticky_radius/2.0
 
         self.pos = np.clip(self.pos, [1,1], [self.width-1, self.height-1])
 
@@ -413,50 +417,7 @@ class GridWorldRGB_Boxed(gym.Wrapper):
     """
 
     def __init__(self, config):
-        super().__init__(env=GridWorld(config))
-        self.img_size = config.get('img_size', 28)
-        if self.img_mode == 'CHW':
-            obs_shape = (3, self.img_size, self.img_size)
-        elif self.img_mode == 'HWC':
-            obs_shape = (self.img_size, self.img_size, 3)
-        else:
-            raise ValueError(f"Invalid image mode {self.img_mode}")
+        super().__init__(env=GridWorldRGB(config))
+        self.env.env.sticky_radius = 5.0
 
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=obs_shape, dtype=np.uint8)
-        self.box_size = config.get('box_size', 5)
 
-    def reset(self, seed=None, options=None):
-        obs, info = super().reset(seed=seed, options=options)
-        return obs, info
-        
-    def get_obs(self):
-        # Return the RGB array of the grid
-        obs = self.render_rgbarray()
-        obs = self.resize_obs(obs)
-        if self.img_mode == 'CHW':
-            obs = rearrange(obs, 'h w c -> c h w')
-        return obs
-
-    def resize_obs(self, obs):
-        """
-        Resize the observations if needed
-        """
-        if obs.shape[0] == obs.shape[1] == self.img_size:
-            return obs
-        return np.array(Image.fromarray(obs).resize((self.img_size, self.img_size)))
-
-    def step(self, action):
-        obs, _, truncated, terminated, info = super().step(action)
-        reward = self._get_reward(self._get_approx_pos(self.pos))
-        return obs, reward, terminated, truncated, info
-    
-    def _get_reward(self, pos, goal_bandwidth=500.0, obstacle_bandwidth=500.0):
-        """
-        Positive reward based on sum of distances to goals
-        Negative reward based on sum of distances to obstacles
-        """
-        # Use approx position instead of agent's position
-        return super()._get_reward(self._get_approx_pos(pos))
-    
-    def _get_approx_pos(self, pos):
-        pass

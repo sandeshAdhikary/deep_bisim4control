@@ -1,4 +1,4 @@
-project_name: cartpole-invariance-exp-spectral
+project_name: swimmer-invariance-exp-spectral
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 1300
@@ -55,7 +55,7 @@ base_config:
   decoder_update_freq: 1
   decoder_weight_lambda: 0.0
   discount: 0.99
-  domain_name: cartpole
+  domain_name: swimmer
   encoder_feature_dim: 50
   encoder_kernel_bandwidth: auto
   encoder_lr: 0.001
@@ -90,7 +90,7 @@ base_config:
   save_tb: true
   save_video: false
   seed: 1
-  task_name: swingup
+  task_name: swimmer6
   total_frames: 1000
   transition_model_type: ''
   work_dir: .
