@@ -11,10 +11,11 @@ RUN apt-get update \
     libosmesa6 \
     # General dependencies
     wget \
+    git \
+    tmux \
     # Testing dependencies
     x11-apps \
-    xpra \
-    git
+    xpra
 
 # Set up working directory
 RUN mkdir -p $HOME/project 
