@@ -1,11 +1,11 @@
 import torch 
 import numpy as np
-from envs.reacher.reacher import MOReacher, MOReacherRGB
+from src.envs.reacher.reacher import MOReacher, MOReacherRGB
 from torch.utils.data import DataLoader
 from einops import rearrange
 from PIL import Image
 import matplotlib.pyplot as plt
-from utils import plot_to_array
+from src.utils.utils import plot_to_array
 from tqdm import trange
 
 class ReacherEvalCallback():

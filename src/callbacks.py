@@ -1,12 +1,15 @@
-import utils
+from src.utils import utils
 import torch
 import numpy as np
 import os
 from einops import rearrange
 import matplotlib.pyplot as plt
-from video import VideoRecorder
+from src.utils.video import VideoRecorder
 import json
 import wandb
+from tqdm import trange
+from gym.vector import AsyncVectorEnv, SyncVectorEnv, VectorEnv, VectorEnvWrapper
+VEC_ENVS = (AsyncVectorEnv, SyncVectorEnv, VectorEnv, VectorEnvWrapper)
 
 
 class TrainingCallback():
@@ -46,12 +49,18 @@ class TrainingCallback():
     def set_env(self, env):
         self.env = env
         
+        self.vectorized = False
+        if hasattr(self.env, 'envs'):
+            # Use functions for vectorized environments
+            self.vectorized = True
+    
         if self.callbacks is not None:
             for callback in self.callbacks:
                 if callback is not None:
                     callback.set_env(env)
 
     def __call__(self, agent, logger, step):
+
         eval_reward = self.evaluate(self.env, agent, self.video, self.num_eval_episodes, logger, step)
         if self.save_model_mode == 'all':
             # save model
@@ -82,9 +91,86 @@ class TrainingCallback():
         logger.dump(step)
 
         return eval_reward
-
-
+    
     def evaluate(self, env, agent, video, num_episodes, L, step, device=None, embed_viz_dir=None, do_carla_metrics=None):
+        if self.vectorized:
+            return self.evaluate_vec(env, agent, video, num_episodes, L, step, device, embed_viz_dir, do_carla_metrics)
+        else:
+            return self.evaluate_nonvec(env, agent, video, num_episodes, L, step, device, embed_viz_dir, do_carla_metrics)
+
+
+    def evaluate_vec(self, env, agent, video, num_episodes, L, step, device=None, embed_viz_dir=None, do_carla_metrics=None):
+        max_ep_steps = env._max_episode_steps
+        num_frames = env._frames
+
+        obses = []       
+        video.init(enabled=True)
+
+        obs, info = env.reset() # obs: (num_env, *obs_shape)
+        dones = [False] * env.num_envs
+        episode_reward_list = []
+        steps = 0
+        steps_to_keep = [None]*env.num_envs
+        num_eps = [0]*env.num_envs
+
+        for i in trange(num_episodes*max_ep_steps, desc='Running eval rollouts'):
+            # No  need to reset again since vec_env resets individual envs automatically
+            if None not in steps_to_keep:
+                # All envs have completed max_eps
+                break
+            steps += 1
+            with utils.eval_mode(agent):
+                # Get actions for all envs
+                action = agent.select_action(obs, batched=True)
+
+            obses.append(obs)
+
+            obs, reward, terminated, truncated, info = env.step(action)
+            dones = [x or y for (x,y) in zip(terminated, truncated)]
+    
+            for ide in range(env.num_envs):
+                if dones[ide]:
+                    num_eps[ide] += 1
+
+                if num_eps[ide] >= num_episodes:
+                    steps_to_keep[ide] = steps
+
+            video.record(env)
+            episode_reward_list.append(reward)
+
+        video.save('%d.mp4' % step)
+        if len(video.frames) > 0:
+            L.log_video('eval/video', video.frames, step)
+        episode_reward_list = np.array(episode_reward_list)
+
+        max_steps = episode_reward_list.shape[0]
+        mask = [np.pad(np.ones(n), (0, max_steps-n),mode='constant') for n in steps_to_keep]
+        mask = np.stack(mask, axis=1)
+        episode_reward_list *= mask
+
+        # Log video of evaluation observations
+        obses = np.stack(obses) # (steps, num_envs, *obs_shape)
+        # Stack frames horizontally; Stack episodes along batches
+        obses = rearrange(obses, 'b n (f c) h w -> b c (n h) (f w)', f=len(num_frames)) 
+        L.log_video('eval/obs_video', obses, image_mode='chw', step=step)
+
+
+        # Get average episode reward for each environment
+        avg_env_episode_rewards = np.sum(episode_reward_list, axis=0)/num_episodes
+        # Log performance for each environment
+        self.log_performance(avg_env_episode_rewards, L, step)
+
+
+        # eval_episode_reward is the episode reward only from the first env
+        # since first env has the same config as the training env
+        eval_episode_reward = avg_env_episode_rewards[0]
+
+        L.log('eval/episode_reward', eval_episode_reward, step)
+
+        return eval_episode_reward
+
+
+    def evaluate_nonvec(self, env, agent, video, num_episodes, L, step, device=None, embed_viz_dir=None, do_carla_metrics=None):
         # carla metrics:
         reason_each_episode_ended = []
         distance_driven_each_episode = []
@@ -103,11 +189,7 @@ class TrainingCallback():
             # carla metrics:
             dist_driven_this_episode = 0.
 
-            obs = env.reset()
-            if len(obs) == 2:
-                # env.reset() can output (obs,info) tuple
-                assert isinstance(obs[1], dict)
-                obs = obs[0]
+            obs, info = env.reset()
             video.init(enabled=(i == 0))
             done = False
             episode_reward = 0
@@ -152,9 +234,7 @@ class TrainingCallback():
             episode_rewards.append(episode_reward)
             episode_reward_lists.append(episode_reward_list)
 
-        # Get mean reward over episodes
-        mean_ep_reward = np.median(episode_rewards)
-        self.log_performance(episode_rewards, L, step)
+
 
         if embed_viz_dir:
             dataset = {'obs': obses, 'values': values, 'embeddings': embeddings}
@@ -184,30 +264,38 @@ class TrainingCallback():
             print('brake: {}'.format(brake / count))
             print('---------------------------------')
 
+        # Get mean reward over episodes
+        mean_ep_reward = np.median(episode_rewards)
+        std_ep_reward = np.std(episode_rewards)
+        self.log_performance(episode_rewards, L, step)
+
         return mean_ep_reward
 
-    def log_performance(self, reward_list, logger, step):
-        avg_reward = np.median(reward_list)
-        std_reward = np.std(reward_list)
-        # std_reward = np.random.uniform()
+    def log_performance(self, episode_rewards, logger, step):
 
-        # if self.eval_table is None:
-        if self.eval_table is None:
-            eval_data = [[step, avg_reward, std_reward]]
-            columns = ['step', 'value', 'error']
-        else:
-            eval_data = self.eval_table.data    
-            columns = self.eval_table.columns
-            eval_data.append([step, avg_reward, std_reward])
+        if logger.sw_type == 'wandb':
             
-        self.eval_table = wandb.Table(data=eval_data, columns=columns)
-
-        wandb.log(
-            {
-                "eval_rewards_lineplot": wandb.plot_table(
-                    data_table=self.eval_table ,
-                    vega_spec_name='adhikary-sandesh/lineploterrorband',
-                    fields={'value': 'value', 'error': 'error', 'step': 'step'},
-                )
-            }
-        )
+            env_cols = [f'env_{i}' for i in range(len(episode_rewards))]
+            columns = ['step', 'value', 'error', *env_cols]
+            avg_value = np.median(episode_rewards)
+            std_value = np.std(episode_rewards)
+            # if self.eval_table is None:
+            if self.eval_table is None:
+                eval_data = [[step, avg_value, std_value, *episode_rewards]]
+            else:
+                eval_data = self.eval_table.data    
+                columns = self.eval_table.columns
+                eval_data.append([step, avg_value, std_value, *episode_rewards])
+                
+            self.eval_table = wandb.Table(data=eval_data, columns=columns)
+            
+            logger._sw.log(
+                {
+                    "eval_rewards_lineplot": wandb.plot_table(
+                        data_table=self.eval_table ,
+                        vega_spec_name='adhikary-sandesh/lineploterrorband',
+                        fields={'value': 'value', 'error': 'error', 'step': 'step'},
+                    )
+                },
+                step=step
+            )

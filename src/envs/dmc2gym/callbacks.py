@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from einops import rearrange
 from PIL import Image
-from encoder import _CLUSTER_ENCODERS
+from src.models.encoder import _CLUSTER_ENCODERS
 import pickle
 import os
 
@@ -32,6 +32,7 @@ class DMCCallback():
 
     def set_env(self, env):
         self.env = env
+        self.is_vec_env = hasattr(self.env, 'envs')
 
         if self.eval_actions is None:
             # Save a fixed sequence of actions for evaluation:
@@ -47,15 +48,7 @@ class DMCCallback():
     def log_artifacts(self, agent, logger, step):
         actions = self.eval_actions
         assert actions is not None, "Eval actions not set!"
-        # Log features
-        obs = self.env.reset()
-        all_obs = [torch.from_numpy(obs).to(agent.device).to(torch.float32)]
-        for ida, a in enumerate(actions):
-            obs, _, terminated, truncated, _ = self.env.step(a)
-            all_obs.append(torch.from_numpy(obs).to(agent.device).to(torch.float32))
-            if terminated or truncated:
-                self.env.reset()
-        all_obs = torch.stack(all_obs)
+        all_obs = self.collect_rollouts(agent, actions)
 
         embeddings = self.get_embeddings(all_obs, agent, get_feature_grads=True)
 
@@ -67,7 +60,34 @@ class DMCCallback():
         if len(obs_grads) > 0:
             logger.log_table('eval/obs_grads', obs_grads, step)
 
-    def get_embeddings(self, obs, agent, get_feature_grads=False):
+    def collect_rollouts(self, agent, actions_input):
+        
+        # Vectorize actions if needed
+        actions = np.array(actions_input)
+        if self.is_vec_env:    
+            if actions.shape[1:] != self.env.action_space.shape:
+                # Repeat the actions for each environment
+                actions = actions[:,None,:].repeat(self.env.num_envs, axis=1)
+                assert actions.shape[1:] == self.env.action_space.shape
+        
+        obs, info = self.env.reset()
+        all_obs = [torch.from_numpy(obs).to(agent.device).to(torch.float32)]
+        for ida, a in enumerate(actions):
+            obs, _, terminated, truncated, _ = self.env.step(a)
+            all_obs.append(torch.from_numpy(obs).to(agent.device).to(torch.float32))
+            if (not self.is_vec_env) and (terminated or truncated):
+                # If vec_env, then the envs are reset automatically
+                obs, info = self.env.reset()
+        all_obs = torch.stack(all_obs)
+        return all_obs
+
+    def get_embeddings(self, obs_input, agent, get_feature_grads=False):
+
+        obs = obs_input
+        if self.is_vec_env:
+            # Stack the separate env-observations as batches
+            obs = rearrange(obs, 'b n c h w -> (b n) c h w')
+
 
         # Get embeddings for all observations
         batch_size = 100
@@ -96,5 +116,6 @@ class DMCCallback():
         all_features = torch.concat(all_features, dim=0)
         if get_feature_grads:
             obs_grads = torch.concat(obs_grads, dim=0)
+
         return {'features': all_features, 'pred_rews': all_pred_rews, 'cluster_labels': all_cluster_labels, 'obs_grads': obs_grads}
 

@@ -10,11 +10,11 @@ import dmc2gym
 import numpy as np
 from torch.nn import functional as F
 
-from encoder import make_encoder
-from decoder import make_decoder
-from sac_ae import weight_init
+from src.models.encoder import make_encoder
+from src.models.decoder import make_decoder
+from src.models.sac_ae import weight_init
 from train import parse_args
-import utils
+import src.utils.utils as utils
 
 
 args = parse_args()

@@ -9,9 +9,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import utils
-from sac_ae import  Actor, Critic, LOG_FREQ
-from transition_model import make_transition_model
+from src.utils import utils
+from src.models.sac_ae import  Actor, Critic, LOG_FREQ
+from src.models.transition_model import make_transition_model
 from sklearn.cluster import MiniBatchKMeans, KMeans
 
 class BisimAgent(object):
@@ -216,14 +216,18 @@ class BisimAgent(object):
     def alpha(self):
         return self.log_alpha.exp()
 
-    def select_action(self, obs):
+    def select_action(self, obs, batched=False):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(self.device)
-            obs = obs.unsqueeze(0)
+            if not batched:
+                obs = obs.unsqueeze(0)
             mu, _, _, _ = self.actor(
                 obs, compute_pi=False, compute_log_pi=False
             )
-            return mu.cpu().data.numpy().flatten()
+            mu = mu.cpu().data.numpy()
+            if not batched:
+                mu = mu.flatten()
+            return mu
 
     def sample_action(self, obs):
         with torch.no_grad():

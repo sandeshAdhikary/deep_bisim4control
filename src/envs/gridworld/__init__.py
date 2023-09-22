@@ -35,7 +35,6 @@ def make_gridworld(
         'obstacle_weights': obstacle_weights,
         'reward_mode': 'sparse' if sparse_rewards else 'dense',
         'seed': seed,
-        'max_episode_steps': max_episode_steps,
         'img_size': height,
         'action_mode': 'continuous',
         'random_init': True
@@ -47,11 +46,11 @@ def make_gridworld(
         
         if from_pixels:
             if boxed_env:
-                entry_point = 'envs.gridworld.gridworld:GridWorldRGB_Boxed'
+                entry_point = 'src.envs.gridworld.gridworld:GridWorldRGB_Boxed'
             else:
-                entry_point = 'envs.gridworld.gridworld:GridWorldRGB'
+                entry_point = 'src.envs.gridworld.gridworld:GridWorldRGB'
         else:
-            entry_point = 'envs.gridworld.gridworld:GridWorld'
+            entry_point = 'src.envs.gridworld.gridworld:GridWorld'
 
         register(
             id=env_id,
@@ -59,7 +58,7 @@ def make_gridworld(
             kwargs={'config': env_config},
         )
     
-    return gym.make(env_id)
+    return gym.make(env_id, max_episode_steps=max_episode_steps)
 
 def get_goals_and_obstacles(size, mode='diag'):
     """

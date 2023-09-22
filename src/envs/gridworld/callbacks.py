@@ -1,10 +1,10 @@
 import torch 
 import numpy as np
-from envs.gridworld.gridworld import GridWorld, GridWorldRGB
+from src.envs.gridworld.gridworld import GridWorld, GridWorldRGB
 from torch.utils.data import DataLoader
 from einops import rearrange
 from PIL import Image
-from encoder import _CLUSTER_ENCODERS
+from src.models.encoder import _CLUSTER_ENCODERS
 import pickle
 import os
 
@@ -43,7 +43,7 @@ class GridWorldEvalCallback():
         all_poses = []
         for pos in all_pos:
             self.env.env.env.env.env.set_default_init_pos(pos)
-            obs = self.env.reset()
+            obs, info = self.env.reset()
             obs = torch.from_numpy(obs).to(agent.device)
             all_obs.append(obs)
             all_poses.append(self.env.pos)
@@ -65,13 +65,13 @@ class GridWorldEvalCallback():
         actions = self.eval_actions
         # Log features
         self.env.env.env.env.env.set_default_init_pos([0.,0.])
-        obs = self.env.reset()
+        obs, info = self.env.reset()
         all_obs = [torch.from_numpy(obs).to(agent.device).to(torch.float32)]
         for ida, a in enumerate(actions):
             obs, _, terminated, truncated, _ = self.env.step(a)
             all_obs.append(torch.from_numpy(obs).to(agent.device).to(torch.float32))
             if terminated or truncated:
-                self.env.reset()
+                obs, info = self.env.reset()
         all_obs = torch.stack(all_obs)
 
         embeddings = self.get_embeddings(all_obs, agent, get_feature_grads=True)

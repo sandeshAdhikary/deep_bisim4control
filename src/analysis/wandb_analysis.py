@@ -1,6 +1,5 @@
 import wandb
 import numpy as np
-import pandas as pd
 import json
 import os
 from tqdm import tqdm
@@ -12,12 +11,12 @@ api = wandb.Api()
 encoder_modes = ['dbc', 'spectral']
 img_shrink_factor = 2.0
 distract_levels = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-domain = 'gridworld'
+domain = 'cartpole'
 
 for encoder_mode in encoder_modes:
 
 
-    entity, project = "adhikary-sandesh", f"{domain}-invariance-exp-{encoder_mode}-v2"
+    entity, project = "adhikary-sandesh", f"{domain}-invariance-exp-{encoder_mode}"
     runs = api.runs(entity + "/" + project)
 
 

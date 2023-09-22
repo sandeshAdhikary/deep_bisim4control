@@ -1,12 +1,13 @@
 from gym import core, spaces
 import glob
 import os
-import local_dm_control_suite as suite
+import src.local_dm_control_suite as suite
 from dm_env import specs
 import numpy as np
-import skimage.io
 
-from dmc2gym import natural_imgsource
+from src.dmc2gym import natural_imgsource
+from src.defaults import MNIST_IMAGES_PATH, DRIVING_STEREO_IMAGES_PATH
+
 
 
 def _spec_to_box(spec):
@@ -89,7 +90,7 @@ class DMCWrapper(core.Env):
             )
         else:
             self._observation_space = _spec_to_box(
-                self._env.observation_spec().values()
+                self._env.observation_spec().values(), dtype=np.float32
             )
 
         self._internal_state_space = spaces.Box(
@@ -106,11 +107,19 @@ class DMCWrapper(core.Env):
                 self._bg_source = natural_imgsource.RandomColorSource(shape2d)
             elif img_source == "noise":
                 self._bg_source = natural_imgsource.NoiseSource(shape2d)
+            elif img_source == 'mnist':
+                resource_files = MNIST_IMAGES_PATH
+                files = glob.glob(os.path.expanduser(resource_files))
+                assert len(files), "Pattern {} does not match any files".format(resource_files)
+                self._bg_source = natural_imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=total_frames)
+            elif img_source == 'driving_stereo':
+                resource_files = DRIVING_STEREO_IMAGES_PATH
+                files = glob.glob(os.path.expanduser(resource_files))
+                assert len(files), "Pattern {} does not match any files".format(resource_files)
+                self._bg_source = natural_imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=total_frames)
             else:
                 files = glob.glob(os.path.expanduser(resource_files))
-                assert len(files), "Pattern {} does not match any files".format(
-                    resource_files
-                )
+                assert len(files), "Pattern {} does not match any files".format(resource_files)
                 if img_source == "images":
                     self._bg_source = natural_imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=total_frames)
                 elif img_source == "video":
@@ -183,14 +192,15 @@ class DMCWrapper(core.Env):
                 break
         obs = self._get_obs(time_step)
         extra['discount'] = time_step.discount
-        # TODO: How should truncated vs terminated be handled?
-        truncated = terminated = done
+        terminated = truncated = done
         return obs, reward, truncated, terminated, extra
 
-    def reset(self):
+    def reset(self, **kwargs):
         time_step = self._env.reset()
+        if hasattr(self, '_bg_source'):
+            self._bg_source.reset()
         obs = self._get_obs(time_step)
-        return obs
+        return obs, {}
 
     def render(self, mode='rgb_array', height=None, width=None, camera_id=0):
         assert mode == 'rgb_array', 'only support rgb_array mode, given %s' % mode

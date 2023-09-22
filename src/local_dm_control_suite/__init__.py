@@ -25,24 +25,24 @@ import itertools
 
 from dm_control.rl import control
 
-from local_dm_control_suite import acrobot
-from local_dm_control_suite import ball_in_cup
-from local_dm_control_suite import cartpole
-from local_dm_control_suite import cheetah
-from local_dm_control_suite import finger
-from local_dm_control_suite import fish
-from local_dm_control_suite import hopper
-from local_dm_control_suite import humanoid
-from local_dm_control_suite import humanoid_CMU
-from local_dm_control_suite import lqr
-from local_dm_control_suite import manipulator
-from local_dm_control_suite import pendulum
-from local_dm_control_suite import point_mass
-from local_dm_control_suite import quadruped
-from local_dm_control_suite import reacher
-from local_dm_control_suite import stacker
-from local_dm_control_suite import swimmer
-from local_dm_control_suite import walker
+from src.local_dm_control_suite import acrobot
+from src.local_dm_control_suite import ball_in_cup
+from src.local_dm_control_suite import cartpole
+from src.local_dm_control_suite import cheetah
+from src.local_dm_control_suite import finger
+from src.local_dm_control_suite import fish
+from src.local_dm_control_suite import hopper
+from src.local_dm_control_suite import humanoid
+from src.local_dm_control_suite import humanoid_CMU
+from src.local_dm_control_suite import lqr
+from src.local_dm_control_suite import manipulator
+from src.local_dm_control_suite import pendulum
+from src.local_dm_control_suite import point_mass
+from src.local_dm_control_suite import quadruped
+from src.local_dm_control_suite import reacher
+from src.local_dm_control_suite import stacker
+from src.local_dm_control_suite import swimmer
+from src.local_dm_control_suite import walker
 
 # Find all domains imported.
 _DOMAINS = {name: module for name, module in locals().items()

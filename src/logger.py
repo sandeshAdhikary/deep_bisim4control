@@ -102,8 +102,8 @@ class MetersGroup(object):
 class Logger(object):
     def __init__(self, config=None):
         # log_dir, sw='tensorboard', 
-
-        self._log_dir = config['log_dir']
+        self._project_name = config.get('project', 'misc')
+        self._log_dir = os.path.join(config['log_dir'], self._project_name)
 
         format_config = config.get('format_config', 'rl')
 
@@ -114,7 +114,7 @@ class Logger(object):
                 shutil.rmtree(tb_dir)
             self._sw = SummaryWriter(tb_dir)
         elif self.sw_type == 'wandb':
-            project = config.get('project', 'bisim_project')
+            project = config.get('project', self._project_name)
             tracked_params = config.get('tracked_params', {})
             self._sw = wandb.init(project=project, dir=self._log_dir, config=tracked_params)
         else:

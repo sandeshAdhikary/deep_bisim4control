@@ -1,5 +1,5 @@
 from gym import Wrapper
-from utils import plot_to_array
+from src.utils.utils import plot_to_array
 from PIL import Image, ImageOps
 from einops import rearrange
 
@@ -165,6 +165,8 @@ class DistractorWrapper(Wrapper):
         # If using padding type distractor
         self.img_shrink_factor = distractor_kwargs.pop('img_shrink_factor', 2) # Shrink env image by this factor
         self.distractor = IdealGas(**distractor_kwargs)
+        if hasattr(env, '_max_episode_steps'):
+            self._max_episode_steps = env._max_episode_steps
 
     def reset(self, seed=None, options=None):
         # Reset the distrator env

@@ -23,8 +23,8 @@ import collections
 
 from dm_control import mujoco
 from dm_control.rl import control
-from local_dm_control_suite import base
-from local_dm_control_suite import common
+from src.local_dm_control_suite import base
+from src.local_dm_control_suite import common
 from dm_control.utils import containers
 from dm_control.utils import rewards
 from lxml import etree

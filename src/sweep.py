@@ -1,21 +1,16 @@
-from train import run_train
+from src.train.train import run_train
 import yaml
 import optuna
 from functools import partial
-import os
-from optuna.integration.wandb import WeightsAndBiasesCallback
-import wandb
 import numpy as np
-from optuna.pruners import BasePruner, MedianPruner
+from optuna.pruners import BasePruner
 from optuna.trial import TrialState
-from optuna.samplers import RandomSampler, GridSampler
 
-def objective(trial, hyperparams_config, log_dir, callback=None):
+def objective(trial, hyperparams_config, callback=None):
 
     if callback is not None:
         callback.before_trial()
 
-    # config = yaml.safe_load(open(hyperparams_config['base_config'], 'r'))
     config = hyperparams_config['base_config']
 
     # Update config with trial params
@@ -36,9 +31,9 @@ def objective(trial, hyperparams_config, log_dir, callback=None):
 
     if trial.should_prune():
         raise optuna.TrialPruned()
-
+    config['log_dir'] = 'logdir'
     config['logger_project'] = hyperparams_config['project_name']
-    config['work_dir'] = os.path.join(log_dir, f"trial_{str(trial._trial_id)}")
+    config['work_dir'] = config['log_dir']
     try:
         avg_ep_reward = run_train(config)    
     except (Exception, ValueError, AssertionError) as e:
@@ -52,17 +47,16 @@ def objective(trial, hyperparams_config, log_dir, callback=None):
 
 class TuningCallback():
     def __init__(self, config):
-        self.delete_old_studies = config.get('delete_old_studies', False)
         self.project_name = config.get('project_name', None)
 
     def before_trial(self):
         pass
 
     def after_trial(self):
-        
-        # Delete synced wandb files to prevent storage overflow
-        if self.delete_old_studies and (self.project_name is not None):
-            os.system(f'echo "y" | wandb sync --project {project_name} --clean --clean-old-hours 1')
+        pass        
+        # # Delete synced wandb files to prevent storage overflow
+        # if self.delete_old_studies and (self.project_name is not None):
+        #     os.system(f'echo "y" | wandb sync --project {project_name} --clean --clean-old-hours 1')
 
         
 
@@ -71,6 +65,7 @@ class RepeatPruner(BasePruner):
     """
     https://stackoverflow.com/questions/58820574/how-to-sample-parameters-without-duplicates-in-optuna
     """
+    
     def prune(self, study, trial):
         # type: (Study, FrozenTrial) -> bool
 
@@ -86,9 +81,9 @@ class RepeatPruner(BasePruner):
                                                                                    TrialState.PRUNED,
                                                                                    TrialState.RUNNING,
                                                                                    ]]
-
-        bool_params= np.array(successful_trials).astype(bool)
+      
         # Don´t evaluate function if another with same params has been/is being evaluated before this one
+        bool_params= np.array(successful_trials).astype(bool)
         if np.sum(bool_params)>0:
             if trial.number>np.min(numbers[bool_params]):
                 return True
@@ -109,9 +104,6 @@ if __name__ == "__main__":
     # hyperparam_config_file = 'tune_hyperparams_config.yaml
     hyperparams_config = yaml.safe_load(open(args.config, 'r'))
     project_name = hyperparams_config['project_name']
-    log_dir = os.path.join(hyperparams_config['log_dir'], project_name)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
     
     # Set the sampler
     sampler_type = hyperparams_config['sampler']
@@ -130,9 +122,8 @@ if __name__ == "__main__":
                                 )
     
     tuning_callback = TuningCallback(config={
-        'delete_old_studies': args.delete_old_studies,
         'project_name': project_name,
     })
 
-    partial_objective = partial(objective, hyperparams_config=hyperparams_config, log_dir=log_dir, callback=tuning_callback)
+    partial_objective = partial(objective, hyperparams_config=hyperparams_config, callback=tuning_callback)
     study.optimize(partial_objective, n_trials=hyperparams_config['n_trials'])

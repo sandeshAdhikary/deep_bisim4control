@@ -24,7 +24,6 @@ class GridWorld(gym.Env):
         reward_mode=config.get('reward_mode', 'sparse')
         seed=config.get('seed', 321)
         self.rgb_image_bkg = None
-        self.max_episode_steps = config.get('max_episode_steps', 1000)
         self.action_mode = config.get('action_mode', 'discrete')
         self.img_mode = config.get('img_mode', 'CHW')
         self.random_init = config.get('random_init', False)
@@ -130,39 +129,15 @@ class GridWorld(gym.Env):
             action = np.round(np.clip(action, -1, 1))
 
             self.pos[0] += action[0]
-            # self.pos[0] = int(self.pos[0])
             self.pos[1] += action[1]
-            # self.pos[1] = int(self.pos[1])
-
-            # # Map action from [-1,1] to [0,4]
-            # action = (action + 1) * 2
-
-            # if 0 < action <= 1:
-            #     # right
-            #     self.pos[1] += 1
-            # elif 1 < action <= 2:
-            #     # left
-            #     self.pos[1] -= 1
-            # elif 2 < action <= 3:
-            #     # up
-            #     self.pos[0] -= 1
-            # elif 3 < action <= 4:
-            #     # down
-            #     self.pos[0] += 1
         else:
             raise ValueError(f"Invalid action mode {self.action_mode}")
 
-        # if self.sticky_radius > 0:
-        #     self.pos = (self.pos // self.sticky_radius) * self.sticky_radius
-        #     self.pos += self.sticky_radius/2.0
-
         self.pos = np.clip(self.pos, [1,1], [self.width-1, self.height-1])
 
-        # obs = self.pos
         obs = self.get_obs()
         rew, rew_info = self._get_reward(self.pos)
-        truncated = self.steps >= self.max_episode_steps
-        # terminated = False # No termination condition
+        truncated = False # Truncation, if needed, should be handled by TimeLimit wrapper
         terminated = np.any(np.linalg.norm(self.pos - self.goals, axis=1) < 1e-1) # if close to any goal, terminate
         info = rew_info
 

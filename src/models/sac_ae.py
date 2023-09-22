@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import utils
-from encoder import make_encoder
+from src.utils import utils
+from src.models.encoder import make_encoder
 
 LOG_FREQ = 10_000
 

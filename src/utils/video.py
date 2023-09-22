@@ -9,7 +9,7 @@ import os
 import numpy as np
 import glob
 
-from dmc2gym.natural_imgsource import RandomVideoSource
+from src.dmc2gym.natural_imgsource import RandomVideoSource
 
 
 class VideoRecorder(object):
@@ -40,8 +40,9 @@ class VideoRecorder(object):
                     camera_id=self.camera_id
                 )
             except TypeError:
-                assert env.render_mode == 'rgb_array'
+                # assert env.render_mode == 'rgb_array'
                 frame = env.render()
+                assert isinstance(frame, np.ndarray)
             if self._bg_source:
                 mask = np.logical_and((frame[:, :, 2] > frame[:, :, 1]), (frame[:, :, 2] > frame[:, :, 0]))  # hardcoded for dmc
                 bg = self._bg_source.get_image()

@@ -45,11 +45,21 @@ def soft_update_params(net, target_net, tau):
 
 
 def set_seed_everywhere(seed):
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+    """
+    Set all seeds. Function copied from SB3
+    """
+    # Seed python RNG
     random.seed(seed)
+    # Seed numpy RNG
+    np.random.seed(seed)
+    # seed the RNG for all devices (both CPU and CUDA)
+    torch.manual_seed(seed)
+
+    # Deterministic operations for CuDNN, it may impact performances
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
 def module_hash(module):
@@ -209,13 +219,14 @@ class FrameStack(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
+        info = {}
         if len(obs) == 2:
             # If reset returns a tuple of (obs, info), drop info
             assert isinstance(obs[1], dict)
-            obs = obs[0]
+            obs, info = obs
         for _ in range(self._k):
             self._frames.append(obs)
-        return self._get_obs()
+        return self._get_obs(), info
 
     def step(self, action):
         out = self.env.step(action)

@@ -17,9 +17,10 @@ RUN apt-get update \
     git
 
 # Set up working directory
-WORKDIR $HOME
+RUN mkdir -p $HOME/project 
+WORKDIR $HOME/project
 COPY conda_env.yaml .
-    
+
 # Install Miniconda
 RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O Miniconda.sh && \
         /bin/bash Miniconda.sh -b -p /opt/conda && \
@@ -28,5 +29,10 @@ ENV PATH /opt/conda/bin:$PATH
 
 # Create a conda environment
 RUN conda env create -f conda_env.yaml -v
+
+# Install as package
+COPY setup.py .
+RUN pip install -e .
+
 # Activate the conda env
 RUN echo "source activate dbc" > ~/.bashrc

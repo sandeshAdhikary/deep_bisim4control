@@ -122,7 +122,9 @@ class RandomImageSource(ImageSource):
         self._loc = np.random.randint(0, self.total_frames)
 
     def get_image(self):
-        return self.arr[self._loc]
+        img = self.arr[self._loc]
+        self._loc = (self._loc +1) % self.total_frames
+        return img
 
 
 class RandomVideoSource(ImageSource):

@@ -9,11 +9,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import utils
-from sac_ae_decomp import  Actor, Critic, LOG_FREQ
-from transition_model import make_transition_model
+from src.utils import utils
+from src.models.sac_ae_decomp import  Actor, Critic, LOG_FREQ
+from src.models.transition_model import make_transition_model
 from sklearn.cluster import MiniBatchKMeans, KMeans
-from optimizers import PCGradOptimizer
+from src.models.optimizers import PCGradOptimizer
 
 class BisimAgentDecomp(object):
     """Bisimulation metric algorithm."""
