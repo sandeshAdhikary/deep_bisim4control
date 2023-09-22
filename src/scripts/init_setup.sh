@@ -12,17 +12,20 @@ pip install -e .
 wandb login
 
 # Import required data from the remote
+# import image files
 scp -r sandesh@10.19.137.42:/home/sandesh/Repositories/deep_bisim4control/src/distractors/images src/distractors/images
+# import evaluation action sequences
+scp -r sandesh@10.19.137.42:/home/sandesh/Repositories/deep_bisim4control/src/envs/dmc2gym/eval_actions_*.pkl src/envs/dmc2gym/
 
 #### Set up auto log backup every hour ####
 # Set up cron job to run periodic backups
 CRON_COMMAND="cd /project & /src/scripts/backup_logs.sh"
-CRON_SCHEDULE="0 * * * *" # Run every 
+CRON_SCHEDULE="5 * * * *" # Run every 5 hours
 # Add the cron job to the user's crontab
 (crontab -l 2>/dev/null; echo "$CRON_SCHEDULE $CRON_COMMAND") | crontab -
 # Check if the cron job was added successfully
 if [ $? -eq 0 ]; then
-  echo "Cron job added. The log backup script will run every hour"
+  echo "Cron job added. The log backup script will run every 5 hours"
 else
   echo "Failed to add the cron job."
 fi
