@@ -1,4 +1,4 @@
-project_name: cartpole-exp-spectral-test
+project_name: cartpole-exp-spectral
 log_dir: /src/tune_results
 study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 1300
@@ -23,7 +23,7 @@ hyperparams:
     type: categorical
     options: [0.0001, 0.001, 0.1]
 base_config:
-  img_source: 'none'
+  img_source: 'mnist'
   num_eval_episodes: 1
   num_eval_envs: 4
   eval_img_sources: [color, mnist, driving_stereo]
@@ -70,7 +70,7 @@ base_config:
   logger: wandb
   num_filters: 32
   num_layers: 4
-  num_train_steps: 30_000
+  num_train_steps: 70_000
   port: 2000
   render: false
   replay_buffer_capacity: 50_000
@@ -86,3 +86,5 @@ base_config:
   encoder_output_dim: None
   boxed_env: false
   distractor: None
+  logger_img_downscale_factor: 3
+  log_dir: /project/logdir

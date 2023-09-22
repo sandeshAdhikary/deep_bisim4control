@@ -1,17 +1,16 @@
 #!/bin/bash
 
-experiment_name=cartpole_spectral
-parent_dir=$(dirname "$PWD")
-configs_folder="$parent_dir/experiments/cartpole/spectral"
+experiment_name="cartpole_spectral"
+configs_folder="experiments/cartpole/spectral" 
+cd /project/src
 
 # # Get list of config files in the exp folder
 configs=($(find "$configs_folder" -type f -name "*.yaml" -exec basename {} \;))
-
 num_config=${#configs[@]}
 for ((idx=0; idx<num_config; idx++)); do
     sub_exp_name="${configs[idx]%%.*}"
-    config="/experiments/cartpole/dbc/${configs[idx]}"
-    cmd="python $parent_dir/sweep.py --config $config"
-    echo $cmd
+    config="$configs_folder/${configs[idx]}"
+    cmd="python sweep.py --config $config"
+    # echo $cmd
+    tmux new-session -d -s "$experiment_name-$idx" "$cmd"
 done
-

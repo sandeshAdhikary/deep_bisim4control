@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Source and destination directories
-logdir = 'logdir/'
-backup_host = 'sandesh@10.19.137.42'
-backup_dir = '~/shared/wandb_backup/log_dir'
+logdir='/project/src/logdir/'
+backup_host='sandesh@10.19.137.42'
+backup_dir='~/shared/wandb_backup/log_dir'
 
 # Backup logs
 # r=recursize
