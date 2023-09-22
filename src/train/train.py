@@ -118,6 +118,7 @@ def parse_args():
     parser.add_argument('--logger', default='tensorboard', type=str, choices=['tensorboard', 'wandb'])
     parser.add_argument('--logger_project', default='misc', type=str)
     parser.add_argument('--log_dir', default='logdir', type=str)
+    parser.add_argument('--logger_img_downscale_factor', default=3, type=int)
     # level set experiment args
     parser.add_argument('--levelset_factor', default=1.0, type=float)
     args = parser.parse_args()

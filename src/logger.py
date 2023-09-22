@@ -100,10 +100,12 @@ class MetersGroup(object):
         self._meters.clear()
 
 class Logger(object):
-    def __init__(self, config=None):
-        # log_dir, sw='tensorboard', 
+    def __init__(self, config=None): 
         self._project_name = config.get('project', 'misc')
         self._log_dir = os.path.join(config['log_dir'], self._project_name)
+        # Set image downscaling factor to prevent huge file sizes. 1 means no downscaling
+        self.img_downscale_factor = config.get('img_downscale_factor', 3)
+        self.img_downscale_factor = max(int(self.img_downscale_factor), 1)
 
         format_config = config.get('format_config', 'rl')
 
@@ -147,18 +149,20 @@ class Logger(object):
                 image = rearrange(image, 'c h w -> h w c')
             if torch.is_tensor(image):
                 image = image.detach().cpu().numpy()
+            image = image[:,::self.img_downscale_factor,::self.img_downscale_factor]
             self._sw.log({key: [wandb.Image(image)]}, step=step)
 
     def _try_sw_log_video(self, key, frames, step, image_mode='hwc'):
         if self.sw_type == 'tensorboard':
             frames = torch.from_numpy(np.array(frames))
             frames = frames.unsqueeze(0)
-            self._sw.add_video(key, frames, step, fps=30)
+            self._sw.add_video(key, frames, step)
         elif self.sw_type == 'wandb':
             frames = np.array(frames)
             if image_mode == 'hwc':
                 frames = rearrange(frames, 't h w c -> t c h w')
-            self._sw.log({key: wandb.Video(frames, fps=30)}, step=step)
+            frames = frames[:,:,::self.img_downscale_factor,::self.img_downscale_factor]
+            self._sw.log({key: wandb.Video(frames, fps=1)}, step=step)
 
     def _try_sw_log_histogram(self, key, histogram, step):
         if self.sw_type == 'tensorboard':

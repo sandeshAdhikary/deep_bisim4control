@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 from optuna.pruners import BasePruner
 from optuna.trial import TrialState
+import os
 
 def objective(trial, hyperparams_config, callback=None):
 
@@ -48,12 +49,14 @@ def objective(trial, hyperparams_config, callback=None):
 class TuningCallback():
     def __init__(self, config):
         self.project_name = config.get('project_name', None)
-
+        self.run_backup_script = config.get('run_backup_script', False)
+        
     def before_trial(self):
         pass
 
     def after_trial(self):
-        pass        
+        pass
+        # os.system(f'echo "y" | wandb sync --project {project_name} --clean --clean-old-hours 1')
         # # Delete synced wandb files to prevent storage overflow
         # if self.delete_old_studies and (self.project_name is not None):
         #     os.system(f'echo "y" | wandb sync --project {project_name} --clean --clean-old-hours 1')
@@ -123,6 +126,8 @@ if __name__ == "__main__":
     
     tuning_callback = TuningCallback(config={
         'project_name': project_name,
+        'run_backup_script': hyperparams_config.get('run_backup_script', False)
+        
     })
 
     partial_objective = partial(objective, hyperparams_config=hyperparams_config, callback=tuning_callback)
