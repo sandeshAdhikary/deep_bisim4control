@@ -15,6 +15,6 @@ services:
     environment:
       - MUJOCO_GL=egl
     volumes: 
-      - $PWD/src:/project/src
-      - $PWD/workdir:/project/workdir
-      - $PWD/logdir:/project/logdir
+      - ./src:/project/src
+      - ./workdir:/project/workdir
+      - ./logdir:/project/logdir
