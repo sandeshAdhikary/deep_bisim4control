@@ -6,6 +6,8 @@ import numpy as np
 from optuna.pruners import BasePruner
 from optuna.trial import TrialState
 import os
+from src.defaults import DEFAULTS
+DEFAULT_OPTUNA_STORAGE = DEFAULTS['OPTUNA_STORAGE']
 
 def objective(trial, hyperparams_config, callback=None):
 
@@ -94,6 +96,19 @@ class RepeatPruner(BasePruner):
         return False
 
 
+def dry_run_args_update(hyperparams_config):
+    hyperparams_config['project_name'] = hyperparams_config['project_name'] + '_dryrun'
+    hyperparams_config['n_trials'] = 5
+
+    hyperparams_config['base_config']['episode_length'] = 5
+    hyperparams_config['base_config']['init_steps'] = 5
+    hyperparams_config['base_config']['eval_freq'] = 3
+    hyperparams_config['base_config']['num_train_steps'] = 20
+
+    print(f"Doing a dry run of the sweep with {hyperparams_config['n_trials']} trials")
+
+    return hyperparams_config
+
 
 
 if __name__ == "__main__":
@@ -101,11 +116,17 @@ if __name__ == "__main__":
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--config', type=str, help="Path to hyperparams config file")
-    argparser.add_argument('--delete-old-studies', action='store_true', help="Delete old studies")
+    argparser.add_argument('--dryrun', action='store_true', help="Dry run", default=False)
     args = argparser.parse_args()
+
+
 
     # hyperparam_config_file = 'tune_hyperparams_config.yaml
     hyperparams_config = yaml.safe_load(open(args.config, 'r'))
+
+    if args.dryrun:
+        hyperparams_config = dry_run_args_update(hyperparams_config)
+
     project_name = hyperparams_config['project_name']
     
     # Set the sampler
@@ -117,9 +138,13 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unknown Sampler")
 
+    optuna_storage = hyperparams_config.get('study_storage_url')
+    if optuna_storage is None:
+        optuna_storage=DEFAULT_OPTUNA_STORAGE
+
     study = optuna.create_study(direction='maximize', 
                                 study_name=project_name,
-                                storage=hyperparams_config['study_storage_url'],
+                                storage=optuna_storage,
                                 load_if_exists=True,
                                 pruner=RepeatPruner()
                                 )

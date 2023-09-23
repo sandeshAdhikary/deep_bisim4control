@@ -1,5 +1,4 @@
 project_name: walker-exp-dbc
-study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 81
 sampler: random
 hyperparams:
@@ -85,3 +84,4 @@ base_config:
   logger_img_downscale_factor: 3
   log_dir: /project/logdir
   logger_video_log_freq: None
+  num_seeds: 1

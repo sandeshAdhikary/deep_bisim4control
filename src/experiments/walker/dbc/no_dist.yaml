@@ -1,5 +1,4 @@
 project_name: walker-exp-dbc
-study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 81
 sampler: random
 hyperparams:

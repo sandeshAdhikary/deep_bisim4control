@@ -1,5 +1,4 @@
 project_name: walker-exp-spectral
-study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 1300
 sampler: random
 hyperparams:

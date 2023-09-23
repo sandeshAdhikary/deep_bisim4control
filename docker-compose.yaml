@@ -2,6 +2,7 @@ version: "3"
 services:
   bisim:
     image: ghcr.io/sandeshadhikary/bisim:latest
+    container_name: sandesh_bisim
     stdin_open: true
     tty: true
     deploy:

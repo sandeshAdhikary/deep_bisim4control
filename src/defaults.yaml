@@ -1,0 +1,19 @@
+# SSH connection
+SSH_EMAIL: adhikary.sandesh@gmail.com
+REMOTE_HOST: sandesh@10.19.137.42
+
+# Logging
+WANDB_API_KEY: 
+
+# Data paths
+DATA_FOLDER: 'sandesh@10.19.137.42:/home/sandesh/shared/bisim_data'
+BACKUP_FOLDER: 'sandesh@10.19.137.42:/home/sandesh/shared/wandb_backup'
+
+# Optuna
+OPTUNA_STORAGE: 'mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna'
+
+# Project paths
+LOG_DIR: '/project/logdir'
+MNIST_IMAGES_PATH: 'src/data/distractor_images/mnist/*.png'
+DRIVING_STEREO_IMAGES_PATH: 'src/data/distractor_images/driving_stereo/*.jpg'
+DMC2GYM_EVAL_ACTIONS_FOLDER: 'src/data/dmc2gym_eval_actions'

@@ -6,7 +6,7 @@ from dm_env import specs
 import numpy as np
 
 from src.dmc2gym import natural_imgsource
-from src.defaults import MNIST_IMAGES_PATH, DRIVING_STEREO_IMAGES_PATH
+from src.defaults import DEFAULTS
 
 
 
@@ -108,12 +108,12 @@ class DMCWrapper(core.Env):
             elif img_source == "noise":
                 self._bg_source = natural_imgsource.NoiseSource(shape2d)
             elif img_source == 'mnist':
-                resource_files = MNIST_IMAGES_PATH
+                resource_files = DEFAULTS['MNIST_IMAGES_PATH']
                 files = glob.glob(os.path.expanduser(resource_files))
                 assert len(files), "Pattern {} does not match any files".format(resource_files)
                 self._bg_source = natural_imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=total_frames)
             elif img_source == 'driving_stereo':
-                resource_files = DRIVING_STEREO_IMAGES_PATH
+                resource_files = DEFAULTS['DRIVING_STEREO_IMAGES_PATH']
                 files = glob.glob(os.path.expanduser(resource_files))
                 assert len(files), "Pattern {} does not match any files".format(resource_files)
                 self._bg_source = natural_imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=total_frames)

@@ -17,9 +17,6 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from einops import rearrange
 from copy import copy
-# import logging
-# logging.getLogger('matplotlib.font_manager').disabled = True
-
 
 class eval_mode(object):
     def __init__(self, *models):

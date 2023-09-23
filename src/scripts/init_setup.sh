@@ -1,24 +1,42 @@
 #!/bin/bash
 
 cd /project
+defaults_yaml="src/defaults.yaml"
+yaml() {
+    python3 -c "import yaml;print(yaml.safe_load(open('$1'))$2)"
+}
 
-# Set permissions for the scripts
+num_steps=5
+
+# # Set permissions for the scripts
+echo "Setting execute permissions to run bash scripts."
+sleep 2
 chown -R root src/scripts
+echo "Done [1/$num_steps]"
 
 ## Install the project with pip
+echo "Installing the project with pip"
+sleep 2
 pip install -e .
+echo "Done [2/$num_steps]"
 
-## Log in to wandb
-wandb login
+# Login to wandb
+echo "Setting up wandb"
+sleep 2
+wandb_api_key=$(yaml "$defaults_yaml" "['WANDB_API_KEY']")
+wandb login $wandb_api_key
+echo "Done [3/$num_steps]"
 
-# Import required data from the remote
-# import image files
-scp -r sandesh@10.19.137.42:/home/sandesh/Repositories/deep_bisim4control/src/distractors/images src/distractors/images
-# import evaluation action sequences
-scp -r sandesh@10.19.137.42:/home/sandesh/Repositories/deep_bisim4control/src/envs/dmc2gym/eval_actions_*.pkl src/envs/dmc2gym/
+# ## Download data
+echo "Downloading data"
+sleep 2
+bash src/scripts/download_data.sh
+echo "Done [4/$num_steps]"
 
-#### Set up auto log backup every hour ####
+# #### Set up auto log backup every hour ####
 # Set up cron job to run periodic backups
+echo "Setting up cron job to backup logs"
+sleep 2
 CRON_COMMAND="cd /project & /src/scripts/backup_logs.sh"
 CRON_SCHEDULE="5 * * * *" # Run every 5 hours
 # Add the cron job to the user's crontab
@@ -29,10 +47,16 @@ if [ $? -eq 0 ]; then
 else
   echo "Failed to add the cron job."
 fi
+echo "Done [4/$num_steps]"
 
 # add to ssh agent to avoid passphrase
-ssh-keygen -t rsa -b 4096 -C "adhikary.sandesh@gmail.com"
-ssh-copy-id -i /root/.ssh/id_rsa.pub sandesh@10.19.137.42
+echo "Setting up ssh agent"
+sleep 2
+ssh_email=$(yaml "$defaults_yaml" "['SSH_EMAIL']")
+remote_host==$(yaml "$defaults_yaml" "['REMOTE_HOST']")
+ssh-keygen -t rsa -b 4096 -C "$ssh_email"
+ssh-copy-id -i /root/.ssh/id_rsa.pub $remote_host
 exec ssh-agent $SHELL
 ssh-add
+echo "Done [5/$num_steps]"
 

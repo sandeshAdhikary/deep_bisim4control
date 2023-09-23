@@ -1,5 +1,5 @@
 FROM nvcr.io/nvidia/cuda:11.8.0-devel-ubuntu18.04
-
+RUN 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 # Install system dependencies
 RUN apt-get update \
     && apt-get install -y \
@@ -13,6 +13,8 @@ RUN apt-get update \
     wget \
     git \
     tmux \
+    rsync \
+    cron \
     # Testing dependencies
     x11-apps \
     xpra

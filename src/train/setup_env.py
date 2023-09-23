@@ -1,5 +1,4 @@
 from copy import copy, deepcopy
-from src.envs.reacher import make_reacher
 import src.dmc2gym as dmc2gym
 from src.envs.gridworld import make_gridworld
 from src.envs.gridworld.callbacks import GridWorldEvalCallback
@@ -27,6 +26,9 @@ def setup_env(args):
                 args_new.img_source = args.eval_img_sources[idx]
                 env_fns.append(partial(make_single_env, args_new))
             eval_env = VecEnvWrapper(env_fns)
+        else:
+            eval_env = VecEnvWrapper([partial(make_single_env, args) for _ in range(args.num_eval_envs)])
+    
     else:
         eval_args = deepcopy(args)
         eval_args.seed = args.seed + 1

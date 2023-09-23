@@ -1,6 +1,5 @@
 project_name: cartpole-exp-spectral
 log_dir: /src/tune_results
-study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
 n_trials: 1300
 sampler: random
 hyperparams:

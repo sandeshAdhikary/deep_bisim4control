@@ -6,6 +6,7 @@ from PIL import Image
 from src.models.encoder import _CLUSTER_ENCODERS
 import pickle
 import os
+from src.defaults import DEFAULTS
 
 cluster_encoder_names = [x.__name__ for x in _CLUSTER_ENCODERS.values()]
 
@@ -19,7 +20,7 @@ class DMCCallback():
 
         assert not any([self.domain_name is None, self.task_name is None]), "Must specify domain_name and task_name in config"
 
-        self.eval_actions_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'eval_actions_{self.domain_name}_{self.task_name}.pkl')
+        self.eval_actions_file = os.path.join(DEFAULTS['DMC2GYM_EVAL_ACTIONS_FOLDER'], f'eval_actions_{self.domain_name}_{self.task_name}.pkl')
         self.set_eval_actions()
         
     def set_eval_actions(self):
@@ -28,18 +29,18 @@ class DMCCallback():
                 self.eval_actions = pickle.load(f)
             self.eval_actions = self.eval_actions
         except FileNotFoundError:
-            self.eval_actions = None
+            raise FileNotFoundError(f"Could not find eval actions file {self.eval_actions_file}")
 
     def set_env(self, env):
         self.env = env
         self.is_vec_env = hasattr(self.env, 'envs')
-
-        if self.eval_actions is None:
-            # Save a fixed sequence of actions for evaluation:
-            eval_actions = [self.env.action_space.sample() for _ in range(300)]
-            with open(self.eval_actions_file, 'wb') as f:
-                pickle.dump(eval_actions, f)
-            self.set_eval_actions()
+        # Create eval_actions if not available
+        # if self.eval_actions is None:
+        #     # Save a fixed sequence of actions for evaluation:
+        #     eval_actions = [self.env.action_space.sample() for _ in range(300)]
+        #     with open(self.eval_actions_file, 'wb') as f:
+        #         pickle.dump(eval_actions, f)
+        #     self.set_eval_actions()
 
     def __call__(self, agent, logger, step):
         assert self.env is not None, "Environment not set!"

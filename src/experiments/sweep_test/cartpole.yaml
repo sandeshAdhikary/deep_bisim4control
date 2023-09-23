@@ -1,10 +1,11 @@
-project_name: walker-exp-spectral
-n_trials: 1300
+project_name: sweep-test-cartpole
+dryrun: true
+n_trials: 81
 sampler: random
 hyperparams:
   encoder_mode:
     type: fixed
-    value: 'spectral'
+    value: 'dbc'
   decoder_lr:
     type: categorical
     options: [0.00001, 0.0001, 0.001]
@@ -17,11 +18,8 @@ hyperparams:
   encoder_feature_dim:
     type: categorical
     options: [32, 64, 128]
-  encoder_ortho_loss:
-    type: categorical
-    options: [0.0001, 0.001, 0.1]
 base_config:
-  img_source: 'none'
+  img_source: 'mnist'
   num_eval_episodes: 1
   num_eval_envs: 4
   eval_img_sources: [color, mnist, driving_stereo]
@@ -46,8 +44,8 @@ base_config:
   decoder_update_freq: 1
   decoder_weight_lambda: 0.0
   discount: 0.99
-  domain_name: walker
-  task_name: walk
+  domain_name: cartpole
+  task_name: swingup
   encoder_kernel_bandwidth: auto
   encoder_lr: 0.001
   encoder_mode: spectral
@@ -87,3 +85,4 @@ base_config:
   logger_img_downscale_factor: 3
   log_dir: /project/logdir
   logger_video_log_freq: None
+  num_seeds: 1

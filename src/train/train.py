@@ -117,7 +117,7 @@ def parse_args():
     # Logging
     parser.add_argument('--logger', default='tensorboard', type=str, choices=['tensorboard', 'wandb'])
     parser.add_argument('--logger_project', default='misc', type=str)
-    parser.add_argument('--log_dir', default='logdir', type=str)
+    parser.add_argument('--log_dir', default='/project/logdir', type=str)
     parser.add_argument('--logger_img_downscale_factor', default=3, type=int)
     parser.add_argument('--logger_video_log_freq', default=None, type=int)
     # level set experiment args
@@ -154,7 +154,7 @@ def update_args(args):
         # Set logger_video_log_freq so we get max 5 videos per run
         num_video_logs = 5
         num_evals = int((args.num_train_steps // args.episode_length) / args.eval_freq)
-        args.logger_video_log_freq = int(num_evals / num_video_logs)
+        args.logger_video_log_freq = max(int(num_evals / num_video_logs), 1)
 
     return args
 
@@ -342,8 +342,7 @@ def run_train(args=None):
     args = update_args(args)
 
     seed = args.seed
-    # seeds = [seed + idx for idx in range(args.num_seeds)]
-    seeds = [seed, seed, seed]
+    seeds = [seed + idx for idx in range(args.num_seeds)]
     avg_rewards = []
     for seed in seeds:
         # Set seed for reproducibility
