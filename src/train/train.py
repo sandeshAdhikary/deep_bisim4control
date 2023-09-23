@@ -119,6 +119,7 @@ def parse_args():
     parser.add_argument('--logger_project', default='misc', type=str)
     parser.add_argument('--log_dir', default='logdir', type=str)
     parser.add_argument('--logger_img_downscale_factor', default=3, type=int)
+    parser.add_argument('--logger_video_log_freq', default=None, type=int)
     # level set experiment args
     parser.add_argument('--levelset_factor', default=1.0, type=float)
     args = parser.parse_args()
@@ -147,6 +148,13 @@ def update_args(args):
 
     if args.img_source == 'none':
         args.img_source = None
+
+    # Set logger_video_log_freq
+    if args.logger_video_log_freq in [None, 'none', 'None']:
+        # Set logger_video_log_freq so we get max 5 videos per run
+        num_video_logs = 5
+        num_evals = int((args.num_train_steps // args.episode_length) / args.eval_freq)
+        args.logger_video_log_freq = int(num_evals / num_video_logs)
 
     return args
 
@@ -204,7 +212,8 @@ def single_run(args):
         'train_args': args,
         'save_model_mode': 'best',
         'num_eval_episodes': args.num_eval_episodes,
-        'callbacks': [domain_callback]
+        'callbacks': [domain_callback],
+        'log_video_freq': args.logger_video_log_freq,
     })
     training_callback.set_env(eval_env) # Will also set env for domain_callback
 

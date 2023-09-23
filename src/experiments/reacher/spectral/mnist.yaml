@@ -87,3 +87,4 @@ base_config:
   distractor: None
   logger_img_downscale_factor: 3
   log_dir: /project/logdir
+  logger_video_log_freq: None

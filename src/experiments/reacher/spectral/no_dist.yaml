@@ -23,7 +23,7 @@ hyperparams:
     type: categorical
     options: [0.0001, 0.001, 0.1]
 base_config:
-  img_source: 'mnist'
+  img_source: 'none'
   num_eval_episodes: 1
   num_eval_envs: 4
   eval_img_sources: [color, mnist, driving_stereo]
@@ -88,3 +88,4 @@ base_config:
   distractor: None
   logger_img_downscale_factor: 3
   log_dir: /project/logdir
+  logger_video_log_freq: None

@@ -45,6 +45,9 @@ class TrainingCallback():
 
         # Add other callbacks
         self.callbacks = config.get('callbacks')
+        self.log_video_freq = config.get('log_video_freq', 10) # Every 10 evals
+        self.eval_calls = 0 # Track how many times eval has been called
+        self.training_done = False
 
     def set_env(self, env):
         self.env = env
@@ -77,10 +80,13 @@ class TrainingCallback():
                     callback.__call__(agent, logger, step)
         logger.dump(step)
     
+        self.eval_calls += 1
+
     def after_train(self, agent, logger, step):
         """
         """
         # Evaluate the model and get final performance metric
+        self.training_done = True
         eval_reward = self.evaluate(self.env, agent, self.video, self.num_eval_episodes, logger, step)
         
         if self.callbacks is not None:
@@ -134,13 +140,14 @@ class TrainingCallback():
 
                 if num_eps[ide] >= num_episodes:
                     steps_to_keep[ide] = steps
-
-            video.record(env)
+            if (step % self.log_video_freq == 0) or self.training_done:
+                video.record(env)
             episode_reward_list.append(reward)
 
-        video.save('%d.mp4' % step)
-        if len(video.frames) > 0:
-            L.log_video('eval/video', video.frames, step)
+        if (step % self.log_video_freq == 0) or self.training_done:
+            video.save('%d.mp4' % step)
+            if len(video.frames) > 0:
+                L.log_video('eval/video', video.frames, step)
         episode_reward_list = np.array(episode_reward_list)
 
         max_steps = episode_reward_list.shape[0]
@@ -152,7 +159,8 @@ class TrainingCallback():
         obses = np.stack(obses) # (steps, num_envs, *obs_shape)
         # Stack frames horizontally; Stack episodes along batches
         obses = rearrange(obses, 'b n (f c) h w -> b c (n h) (f w)', f=len(num_frames)) 
-        L.log_video('eval/obs_video', obses, image_mode='chw', step=step)
+        if (step % self.log_video_freq == 0) or self.training_done:
+            L.log_video('eval/obs_video', obses, image_mode='chw', step=step)
 
 
         # Get average episode reward for each environment
