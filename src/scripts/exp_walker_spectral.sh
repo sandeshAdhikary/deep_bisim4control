@@ -1,7 +1,7 @@
 #!/bin/bash
 
-experiment_name="cartpole_spectral"
-configs_folder="src/experiments/cartpole/spectral" 
+experiment_name="walker_spectral"
+configs_folder="src/experiments/cartpole/walker" 
 cd /project
 
 # # Get list of config files in the exp folder
