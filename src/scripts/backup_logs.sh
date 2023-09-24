@@ -16,9 +16,15 @@ for folder in $logfolders; do
   if [ "$folder" != "$logdir" ]; then
     echo "Backing up subfolder: $folder"
     rsync -raz  "$folder" "$backup_folder"
+    sync_success=$?
+    # Check the exit status
+    if [ "$sync_success" -eq 0 ]; then
+        echo "Synced $folder successfully."
+        wandb sync $folder --clean --clean-old-hours 1
+    else
+        echo "Backup sync failed with exit status $sync_success."
+    fi
+
   fi
 done
 
-# Delete local logs of runs that have already been synced
-# Check of files synced more than an hour ago, and delete them
-wandb sync --clean --clean-old-hours 1

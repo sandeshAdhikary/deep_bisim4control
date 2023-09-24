@@ -23,8 +23,7 @@ echo "Done [2/$num_steps]"
 # Login to wandb
 echo "Setting up wandb"
 sleep 2
-wandb_api_key=$(yaml "$defaults_yaml" "['WANDB_API_KEY']")
-wandb login $wandb_api_key
+wandb login
 echo "Done [3/$num_steps]"
 
 # ## Download data
