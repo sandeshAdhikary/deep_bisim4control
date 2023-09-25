@@ -16,5 +16,6 @@ services:
       - MUJOCO_GL=egl
     volumes: 
       - ./src:/project/src
+      - ./scripts:/project/scripts
       - ./workdir:/project/workdir
       - ./logdir:/project/logdir

@@ -82,5 +82,5 @@ base_config:
   boxed_env: false
   distractor: None
   logger_img_downscale_factor: 3
-  log_dir: /project/logdir
+  log_dir: /${ROOT_DIR}/logdir
   logger_video_log_freq: None

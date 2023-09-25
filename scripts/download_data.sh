@@ -1,5 +1,5 @@
 # Import required data from the remote
-cd /project
+cd $ROOT_DIR
 defaults_yaml="src/defaults.yaml"
 yaml() {
     python3 -c "import yaml;print(yaml.safe_load(open('$1'))$2)"

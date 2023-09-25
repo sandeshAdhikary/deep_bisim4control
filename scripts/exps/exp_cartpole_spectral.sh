@@ -1,8 +1,8 @@
 #!/bin/bash
 
-experiment_name="cartpole_dbc"
-configs_folder="src/experiments/cartpole/dbc" 
-cd /project
+experiment_name="cartpole_spectral"
+configs_folder="src/experiments/cartpole/spectral" 
+cd $ROOT_DIR
 
 # Use or create experiment_log_folder to save std out logs
 experiment_log_folder="src/_exp_script_logs"

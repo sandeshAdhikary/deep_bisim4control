@@ -1,17 +1,14 @@
-#!/bin/bash
+root_dir="/project"
 
-cd /project
+# Save the root dir as env variable
+export ROOT_DIR=$root_dir
+
 defaults_yaml="src/defaults.yaml"
-yaml() {
-    python3 -c "import yaml;print(yaml.safe_load(open('$1'))$2)"
-}
-
 num_steps=5
-
 # # Set permissions for the scripts
 echo "Setting execute permissions to run bash scripts."
 sleep 2
-chown -R root src/scripts
+chown -R root scripts
 echo "Done [1/$num_steps]"
 
 ## Install the project with pip
@@ -29,14 +26,14 @@ echo "Done [3/$num_steps]"
 # ## Download data
 echo "Downloading data"
 sleep 2
-bash src/scripts/download_data.sh
+bash scripts/download_data.sh
 echo "Done [4/$num_steps]"
 
 # #### Set up auto log backup every hour ####
 # Set up cron job to run periodic backups
 echo "Setting up cron job to backup logs"
 sleep 2
-CRON_COMMAND="cd /project & /src/scripts/backup_logs.sh"
+CRON_COMMAND="cd $root_dir & scripts/backup_logs.sh"
 CRON_SCHEDULE="5 * * * *" # Run every 5 hours
 # Add the cron job to the user's crontab
 (crontab -l 2>/dev/null; echo "$CRON_SCHEDULE $CRON_COMMAND") | crontab -
