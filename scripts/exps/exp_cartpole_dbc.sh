@@ -21,6 +21,6 @@ for ((idx=0; idx<num_config; idx++)); do
     sub_exp_name="${configs[idx]%%.*}"
     config="$configs_folder/${configs[idx]}"
     cmd="python src/sweep.py --config $config"
-    current_datetime=$(date "+%Y-%m-%d %H:%M:%S")
+    current_datetime=$(date "+%m-%d-%H-%M-%S")
     tmux new-session -d -s "$experiment_name-$sub_exp_name-$current_datetime" "$cmd > $experiment_log_folder/$experiment_name-$sub_exp_name-$current_datetime.log"
 done
