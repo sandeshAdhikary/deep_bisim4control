@@ -1,4 +1,4 @@
-project_name: walker-exp-spectral
+project_name: walkere-exp-spectral
 n_trials: 1300
 sampler: random
 hyperparams:
@@ -87,3 +87,4 @@ base_config:
   logger_img_downscale_factor: 3
   log_dir: /${ROOT_DIR}/logdir
   logger_video_log_freq: None
+  num_seeds: 1

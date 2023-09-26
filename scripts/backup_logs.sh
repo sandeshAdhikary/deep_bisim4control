@@ -20,7 +20,9 @@ for folder in $logfolders; do
     # Check the exit status
     if [ "$sync_success" -eq 0 ]; then
         echo "Synced $folder successfully."
-        wandb sync $folder --clean --clean-old-hours 1
+        cd $folder
+        echo 'y' | wandb sync --clean --clean-old-hours 1
+        cd $ROOT_DIR
     else
         echo "Backup sync failed with exit status $sync_success."
     fi
