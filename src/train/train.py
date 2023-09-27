@@ -29,6 +29,8 @@ from src.callbacks import TrainingCallback
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default=None, type=str, 
+                        help="Path to hyperparams config file. All other args areignored when config is provided")
     # random seeds
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--num_seeds', default=1, type=int)
@@ -120,15 +122,35 @@ def parse_args():
     parser.add_argument('--log_dir', default='/project/logdir', type=str)
     parser.add_argument('--logger_img_downscale_factor', default=3, type=int)
     parser.add_argument('--logger_video_log_freq', default=None, type=int)
+    parser.add_argument('--logger_tags', default=None, type=str)
     # level set experiment args
     parser.add_argument('--levelset_factor', default=1.0, type=float)
     args = parser.parse_args()
     
+    if args.config is not None:
+        args = args_from_config(args.config)
 
+    return args
+
+
+def args_from_config(config_path):
+
+    import yaml
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    if config.get('project_name') is not None:
+        config['logger_project'] = config.pop('project_name')
+    else:
+        assert config['logger_project'] is not None
+
+    args = SimpleNamespace(**config)
 
     return args
 
 def update_args(args):
+
+    
     # Convert eval_img_sources from a single list to a list of strings
     if isinstance(args.eval_img_sources, str):
         args.eval_img_sources = args.eval_img_sources.strip("(')").replace("'", "")
@@ -136,6 +158,12 @@ def update_args(args):
         args.eval_img_sources = args.eval_img_sources.replace("]", "")
         args.eval_img_sources = [item.strip() for item in args.eval_img_sources.split(',')]
 
+
+    if hasattr(args, 'logger_tags') and isinstance(args.logger_tags, str):
+        args.logger_tags = args.logger_tags.strip("(')").replace("'", "")
+        args.logger_tags = args.logger_tags.replace("[", "")
+        args.logger_tags = args.logger_tags.replace("]", "")
+        args.logger_tags = [item.strip() for item in args.logger_tags.split(',')]
 
 
     # Set encoder output dim to be feature dim if not set

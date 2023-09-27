@@ -118,7 +118,10 @@ class Logger(object):
         elif self.sw_type == 'wandb':
             project = config.get('project', self._project_name)
             tracked_params = config.get('tracked_params', {})
-            self._sw = wandb.init(project=project, dir=self._log_dir, config=tracked_params)
+            tags = config.get('logger_tags', None)
+            if not isinstance(tags, list):
+                tags = list(tags)
+            self._sw = wandb.init(project=project, dir=self._log_dir, config=tracked_params, tags=tags)
         else:
             self._sw = None
 

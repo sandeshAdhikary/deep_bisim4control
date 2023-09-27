@@ -1,5 +1,4 @@
 project_name: cartpole-exp-dbc
-n_trials: 81
 sampler: random
 hyperparams:
   encoder_mode:
