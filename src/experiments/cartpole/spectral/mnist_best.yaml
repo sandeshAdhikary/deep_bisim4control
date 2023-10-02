@@ -66,7 +66,7 @@ replay_buffer_capacity: 50000
 resource_files: null
 reward_decoder_num_rews: 1
 save_buffer: false
-save_model: false
+save_model: true
 save_tb: true
 save_video: false
 seed: 1
