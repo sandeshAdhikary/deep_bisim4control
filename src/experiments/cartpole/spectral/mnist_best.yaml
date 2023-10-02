@@ -1,5 +1,5 @@
 num_seeds: 3
-num_train_steps: 100_000
+num_train_steps: 1_000_000
 logger_tags: [best]
 logger_img_downscale_factor: 1
 ###
