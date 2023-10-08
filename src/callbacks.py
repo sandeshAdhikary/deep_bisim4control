@@ -8,9 +8,21 @@ from src.utils.video import VideoRecorder
 import json
 import wandb
 from tqdm import trange
+import optuna
+from copy import deepcopy
+from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, insert, values, text, JSON
+from optuna.pruners._successive_halving import (
+    _get_current_rung, _completed_rung_key, _get_competing_values,
+    _estimate_min_resource, _is_trial_promotable_to_next_rung
+)
+import pytz
+import datetime
+from optuna.pruners import SuccessiveHalvingPruner
+tz = pytz.timezone('America/Los_Angeles')
 from gym.vector import AsyncVectorEnv, SyncVectorEnv, VectorEnv, VectorEnvWrapper
 VEC_ENVS = (AsyncVectorEnv, SyncVectorEnv, VectorEnv, VectorEnvWrapper)
-
+from src.defaults import DEFAULTS
+DEFAULT_OPTUNA_STORAGE = DEFAULTS['OPTUNA_STORAGE']
 
 class TrainingCallback():
     
@@ -27,7 +39,10 @@ class TrainingCallback():
         if self.train_args is not None:
             # If train_args provided, save them as json
             with open(os.path.join(self.work_dir, 'args.json'), 'w') as f:
-                json.dump(vars(self.train_args), f, sort_keys=True, indent=4)
+                args_to_save = deepcopy(vars(self.train_args))
+                args_to_save['sweep_config'] = None # Don't save since it is not serializable
+                args_to_save['sweep_info'] = None # Don't save since it is not serializable
+                json.dump(args_to_save, f, sort_keys=True, indent=4)
 
         # Model saving:
         self.save_model_mode = config.get('save_model_mode', None)
@@ -49,6 +64,13 @@ class TrainingCallback():
         self.eval_calls = 0 # Track how many times eval has been called
         self.training_done = False
 
+        self.sweep_callback = None
+        sweep_config = config.get('sweep_config')
+        if sweep_config:
+            self.sweep_callback = SweepCallback(sweep_config)
+
+        self.train_end_exception = None
+
     def set_env(self, env):
         self.env = env
         
@@ -68,18 +90,26 @@ class TrainingCallback():
         if self.save_model_mode == 'all':
             # save model
             agent.save(self.model_dir, step)
-            # logger.log_agent("agent", agent, step)
         elif self.save_model_mode == 'best' and eval_reward >= self.best_eval_reward:
             # save model
             agent.save(self.model_dir, f"step_{step}_best")
-            # logger.log_agent("best_agent", agent, step)
+            self.best_eval_reward = eval_reward
 
         if self.callbacks is not None:
             for callback in self.callbacks:
                 if callback is not None:
                     callback.__call__(agent, logger, step)
+
+
+        if self.sweep_callback is not None:
+            info = {'eval_reward': eval_reward}
+            exception = self.sweep_callback(agent, logger, info, step)
+            if exception is not None:
+                return exception
+
         logger.dump(step)
-    
+
+
         self.eval_calls += 1
 
     def after_train(self, agent, logger, step):
@@ -278,7 +308,7 @@ class TrainingCallback():
         # std_ep_reward = np.std(episode_rewards)
         # self.log_performance(episode_rewards, L, step)
 
-        return mean_ep_reward
+        # return mean_ep_reward
 
     def log_performance(self, episode_rewards, logger, step):
 
@@ -307,3 +337,79 @@ class TrainingCallback():
                 },
                 step=step
             )
+
+class SweepCallback():
+    
+    def __init__(self, config=None):
+        config = config or {}
+        self.sweep_name = config['sweep_name']
+        self.study_name = config['study_name']
+        self.optuna_trial = config.get('optuna_trial')
+        self.optuna_storage = config.get('optuna_storage')
+        self.study_id = self.optuna_trial.study._study_id
+        self.sweep_id = self._get_sweep_id(self.sweep_name)
+
+
+        
+    def __call__(self, agent, logger, info, step):
+
+        exception = None
+        if self.optuna_trial is not None:
+            exception = self._optuna_callback(self.optuna_trial, info, step)
+        
+        return exception
+
+
+    def _get_sweep_id(self, sweep_name):
+        engine = create_engine(self.optuna_storage)
+        with engine.connect() as conn:
+            sweep_id = conn.execute(text(f"""SELECT * FROM sweeps 
+                                         WHERE sweep_name=:sweep_name 
+                                         AND study_id=:study_id"""), 
+                                         [{'sweep_name': sweep_name, 'study_id': self.study_id}]).fetchall()[0][0]
+            # [0][0]
+
+        return sweep_id
+
+    def _optuna_callback(self, trial, info, step):
+        # Record intermediate values
+        trial.report(info['eval_reward'], step)
+        
+        # Record intermediate values for sweep
+        current_time = datetime.datetime.now(tz).strftime("%Y-%m-%d-%H:%M:%S.%f")
+        sweep_info = {'current_time': current_time, 'intermediate_value': info['eval_reward']}
+        
+        # Optionally, get pruner info
+        pruner_info = None
+        if hasattr(self.optuna_trial.study, 'pruner'):
+            pruner = self.optuna_trial.study.pruner
+            if isinstance(pruner, SuccessiveHalvingPruner):
+                rung = _get_current_rung(self.optuna_trial)
+                pruner_info = {'rung': rung}
+        sweep_info['pruner_info'] = pruner_info
+
+        sweep_info = json.dumps(sweep_info)
+        engine = create_engine(self.optuna_storage)
+        with engine.connect() as conn:
+            stmnt = f"""
+            INSERT INTO sweeps_intermediate_values (step, study_id, sweep_id, trial_id, info) 
+            VALUES (:step, :study_id, :sweep_id, :trial_id, :info)
+            ON DUPLICATE KEY
+            UPDATE step=step, study_id=study_id, sweep_id=sweep_id, trial_id=trial_id, info=info
+            """
+            conn.execute(text(stmnt), [{
+                'step': step,
+                'sweep_id': self.sweep_id,
+                'study_id': trial.study._study_id,
+                'trial_id': trial._trial_id,
+                'info': json.dumps(sweep_info)
+            }])
+            conn.commit()
+
+
+            if trial.should_prune():
+                return optuna.TrialPruned()
+    
+
+
+

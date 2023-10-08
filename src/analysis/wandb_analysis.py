@@ -10,13 +10,13 @@ from matplotlib.patches import Rectangle
 api = wandb.Api()
 encoder_modes = ['dbc', 'spectral']
 img_shrink_factor = 2.0
-distract_levels = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-domain = 'cartpole'
+distract_levels = [0.0, 0.4, 0.6, 0.8, 1.0]
+domain = 'cheetah'
 
 for encoder_mode in encoder_modes:
 
 
-    entity, project = "adhikary-sandesh", f"{domain}-invariance-exp-{encoder_mode}"
+    entity, project = "adhikary-sandesh", f"{domain}-invariance-exp-{encoder_mode}-v2"
     runs = api.runs(entity + "/" + project)
 
 
@@ -100,65 +100,65 @@ for encoder_mode in encoder_modes:
     ## change horizontal spacing on axes[1]
     plt.subplots_adjust(wspace=1.0)
     fig.set_tight_layout(True)
-    fig.savefig(f'features_{encoder_mode}.png')
+    fig.savefig(f'features_{encoder_mode}_{domain}.png')
     plt.close()
 
-    import ot
-    from scipy.spatial.distance import pdist, squareform, cdist
-    from einops import rearrange
+    # import ot
+    # from scipy.spatial.distance import pdist, squareform, cdist
+    # from einops import rearrange
 
-    def get_wass_dist(grads1, grads2):
-        a = abs(grads1)
-        a = a/a.sum()
-        a = a.reshape(-1)
-        b = abs(grads2)
-        b = b/b.sum()
-        b = b.reshape(-1)
-        # distance matrix
-        elems = np.array([(x,y) for x in range(84) for y in range(84)])
-        M = cdist(elems, elems, metric='euclidean')
-        wass_dist = ot.emd2(a, b, M)
-        return wass_dist
+    # def get_wass_dist(grads1, grads2):
+    #     a = abs(grads1)
+    #     a = a/a.sum()
+    #     a = a.reshape(-1)
+    #     b = abs(grads2)
+    #     b = b/b.sum()
+    #     b = b.reshape(-1)
+    #     # distance matrix
+    #     elems = np.array([(x,y) for x in range(84) for y in range(84)])
+    #     M = cdist(elems, elems, metric='euclidean')
+    #     wass_dist = ot.emd2(a, b, M)
+    #     return wass_dist
 
     
 
 
-    # Plot gradients
-    fig, axes = plt.subplots(1, len(distract_levels)+2 ,figsize=(25,5))
-    wass_dists = []
-    grad_padding_props = []
-    for idx, (level, grad) in enumerate(obs_grads.items()):
-        if grad is not None:
-            wass_dist = get_wass_dist(obs_grads[0.0], grad)
-            wass_dists.append(wass_dist)
-            axes[idx].imshow(abs(grad))
-            # Create an empty square using Rectangle and set fill=False
-            side_len = int(grad.shape[0] / img_shrink_factor)
-            margin = int((grad.shape[0] - side_len)/2)
-            square = Rectangle((margin, margin), side_len, side_len, fill=False)
-            axes[idx].add_patch(square)
-            axes[idx].set_title(f"{level}")
+    # # Plot gradients
+    # fig, axes = plt.subplots(1, len(distract_levels)+2 ,figsize=(25,5))
+    # wass_dists = []
+    # grad_padding_props = []
+    # for idx, (level, grad) in enumerate(obs_grads.items()):
+    #     if grad is not None:
+    #         wass_dist = get_wass_dist(obs_grads[0.0], grad)
+    #         wass_dists.append(wass_dist)
+    #         axes[idx].imshow(abs(grad))
+    #         # Create an empty square using Rectangle and set fill=False
+    #         side_len = int(grad.shape[0] / img_shrink_factor)
+    #         margin = int((grad.shape[0] - side_len)/2)
+    #         square = Rectangle((margin, margin), side_len, side_len, fill=False)
+    #         axes[idx].add_patch(square)
+    #         axes[idx].set_title(f"{level}")
 
-            # Get the proportion of gradients outside the square
-            total_grad_in_square = abs(grad[margin:-margin, margin:-margin]).sum()
-            total_grad_padding = abs(grad).sum() - total_grad_in_square
-            grad_padding_prop = total_grad_padding / abs(grad.sum())
-            grad_padding_props.append(grad_padding_prop)
+    #         # Get the proportion of gradients outside the square
+    #         total_grad_in_square = abs(grad[margin:-margin, margin:-margin]).sum()
+    #         total_grad_padding = abs(grad).sum() - total_grad_in_square
+    #         grad_padding_prop = total_grad_padding / abs(grad.sum())
+    #         grad_padding_props.append(grad_padding_prop)
 
-    # Plot proportion of grad in the padding
-    axes[-2].plot(distract_levels, grad_padding_props, '-o')
-    axes[-2].set_title('Proportion of grad in padding')
-    axes[-2].set_xlabel('Distraction level')
-    axes[-2].set_ylabel('Proportion of grad in padding')
-    axes[-2].set_ylim(0.0, 1.0)
+    # # Plot proportion of grad in the padding
+    # axes[-2].plot(distract_levels, grad_padding_props, '-o')
+    # axes[-2].set_title('Proportion of grad in padding')
+    # axes[-2].set_xlabel('Distraction level')
+    # axes[-2].set_ylabel('Proportion of grad in padding')
+    # axes[-2].set_ylim(0.0, 1.0)
 
-    axes[-1].plot(distract_levels, wass_dists, '-o')
-    axes[-1].set_title('Wass. distances from 0.0')
-    axes[-1].set_xlabel('Distraction level')
-    axes[-1].set_ylabel('Wass. distances')
-    axes[-1].set_ylim(0.0, 20.0)
+    # axes[-1].plot(distract_levels, wass_dists, '-o')
+    # axes[-1].set_title('Wass. distances from 0.0')
+    # axes[-1].set_xlabel('Distraction level')
+    # axes[-1].set_ylabel('Wass. distances')
+    # axes[-1].set_ylim(0.0, 20.0)
     
-    plt.subplots_adjust(wspace=1.0)
+    # plt.subplots_adjust(wspace=1.0)
 
-    fig.savefig(f'grads_{encoder_mode}.png')
-    plt.close()
+    # fig.savefig(f'grads_{encoder_mode}.png')
+    # plt.close()

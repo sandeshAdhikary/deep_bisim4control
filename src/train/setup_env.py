@@ -9,30 +9,31 @@ from src.envs.vec_wrappers import VecEnvWrapper
 import gym
 from functools import partial
 import glob
+VEC_ENV_TYPES = (VecEnvWrapper, gym.vector.AsyncVectorEnv, gym.vector.SyncVectorEnv, gym.vector.VectorEnv)
 
 def setup_env(args):
 
     env = make_single_env(args)
-    if args.num_eval_envs > 1:
-        # Vectorize the evaluation env
-        if args.eval_img_sources is not None:
-            assert len(args.eval_img_sources) == (args.num_eval_envs - 1)
-            assert all([x in ['color', 'noise', 'mnist', 'driving_stereo'] for x in args.eval_img_sources])
-            # The first eval_env uses same config as train env
-            env_fns = [partial(make_single_env, args)]
-            for idx in range(args.num_eval_envs-1):
-                args_new = deepcopy(args)
-                args_new.seed =  args.seed + idx # diff seed for eval
-                args_new.img_source = args.eval_img_sources[idx]
-                env_fns.append(partial(make_single_env, args_new))
-            eval_env = VecEnvWrapper(env_fns)
-        else:
-            eval_env = VecEnvWrapper([partial(make_single_env, args) for _ in range(args.num_eval_envs)])
+
+    # if args.num_train_envs > 1:
+    env = VecEnvWrapper([partial(make_single_env, args) for _ in range(args.num_train_envs)])
+
     
+    if args.eval_img_sources is not None:
+        assert len(args.eval_img_sources) == (args.num_eval_envs - 1), "Num eval envs must be len(eval_img_sources)+1"
+        assert all([x in ['color', 'noise', 'mnist', 'driving_stereo'] for x in args.eval_img_sources]), "Unknown eval_img_sources"
+        # The first eval_env uses same config as train env
+        env_fns = [partial(make_single_env, args)]
+        for idx in range(args.num_eval_envs-1):
+            args_new = deepcopy(args)
+            args_new.seed =  args.seed + idx # diff seed for eval
+            args_new.img_source = args.eval_img_sources[idx]
+            env_fns.append(partial(make_single_env, args_new))
+        eval_env = VecEnvWrapper(env_fns)
     else:
-        eval_args = deepcopy(args)
-        eval_args.seed = args.seed + 1
-        eval_env = make_single_env(args)
+        eval_env = VecEnvWrapper([partial(make_single_env, args) for _ in range(args.num_eval_envs)])
+
+    assert isinstance(env, VEC_ENV_TYPES)
     domain_callback = make_domain_callback(args)
     return env, eval_env, domain_callback
 

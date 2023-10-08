@@ -1,0 +1,415 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.14.1.json",
+  "config": {
+    "view": {
+      "continuousHeight": 300,
+      "continuousWidth": 300
+    }
+  },
+  "data": {
+    "name": "data-0419a466651a25bdca2c28965d4627be"
+  },
+  "datasets": {
+    "data-0419a466651a25bdca2c28965d4627be": [
+      {
+        "_step": 2500,
+        "eval/episode_reward": 44.84785926547574,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 24.824906738992965
+      },
+      {
+        "_step": 5000,
+        "eval/episode_reward": 23.672985372957022,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 16.43171797795449
+      },
+      {
+        "_step": 7500,
+        "eval/episode_reward": 10.646022790386658,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 27.49581744164103
+      },
+      {
+        "_step": 10000,
+        "eval/episode_reward": 62.6154078630949,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 50.54114888538978
+      },
+      {
+        "_step": 12500,
+        "eval/episode_reward": 97.13630572970673,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 60.90085805863029
+      },
+      {
+        "_step": 15000,
+        "eval/episode_reward": 82.45906662326558,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 48.035565745216346
+      },
+      {
+        "_step": 17500,
+        "eval/episode_reward": 64.92492308108095,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 74.12429713806598
+      },
+      {
+        "_step": 20000,
+        "eval/episode_reward": 108.64794728694996,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 71.26673239437594
+      },
+      {
+        "_step": 22500,
+        "eval/episode_reward": 95.28208403998727,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 98.29395738253194
+      },
+      {
+        "_step": 25000,
+        "eval/episode_reward": 75.94733372392864,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 37.49284114424179
+      },
+      {
+        "_step": 27500,
+        "eval/episode_reward": 66.28509602116658,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 43.75392160641448
+      },
+      {
+        "_step": 30000,
+        "eval/episode_reward": 185.19943377931773,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 90.72770567045485
+      },
+      {
+        "_step": 32500,
+        "eval/episode_reward": 87.8149046795251,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 90.63578208629706
+      },
+      {
+        "_step": 35000,
+        "eval/episode_reward": 83.28974596705878,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 135.072782873332
+      },
+      {
+        "_step": 37500,
+        "eval/episode_reward": 38.850274899621205,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 50.466402324412016
+      },
+      {
+        "_step": 40000,
+        "eval/episode_reward": 42.370752768690856,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 60.78582351832291
+      },
+      {
+        "_step": 42500,
+        "eval/episode_reward": 57.592763433439515,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 86.92490581763413
+      },
+      {
+        "_step": 45000,
+        "eval/episode_reward": 41.11133823956423,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 90.39403968981165
+      },
+      {
+        "_step": 47500,
+        "eval/episode_reward": 105.64470597969651,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 189.50526511215318
+      },
+      {
+        "_step": 50000,
+        "eval/episode_reward": 76.468118943533,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 90.1428097622078
+      },
+      {
+        "_step": 52500,
+        "eval/episode_reward": 22.185483778642805,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 20.87956800931345
+      },
+      {
+        "_step": 55000,
+        "eval/episode_reward": 152.30410568211784,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 203.45888517159034
+      },
+      {
+        "_step": 57500,
+        "eval/episode_reward": 138.01228909870667,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 110.93593904191056
+      },
+      {
+        "_step": 60000,
+        "eval/episode_reward": 207.2361129604005,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 176.30079400702974
+      },
+      {
+        "_step": 62500,
+        "eval/episode_reward": 150.29810193033265,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 16.317777166590247
+      },
+      {
+        "_step": 65000,
+        "eval/episode_reward": 155.27747440040653,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 153.68721738676516
+      },
+      {
+        "_step": 67500,
+        "eval/episode_reward": 159.1889908413851,
+        "img_source": "None",
+        "project": "walker-exp-spectral",
+        "train/episode_reward": 174.76181465338234
+      },
+      {
+        "_step": 2500,
+        "eval/episode_reward": 24.32312054421187,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 29.707896247214155
+      },
+      {
+        "_step": 5000,
+        "eval/episode_reward": 48.8785013308779,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 73.16012088590126
+      },
+      {
+        "_step": 7500,
+        "eval/episode_reward": 86.49415742659825,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 76.80598348579161
+      },
+      {
+        "_step": 10000,
+        "eval/episode_reward": 105.22427178501826,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 71.95679561253483
+      },
+      {
+        "_step": 12500,
+        "eval/episode_reward": 88.99502017358326,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 123.79796412909432
+      },
+      {
+        "_step": 15000,
+        "eval/episode_reward": 112.29455385544539,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 97.67356296286138
+      },
+      {
+        "_step": 17500,
+        "eval/episode_reward": 113.9490658811439,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 94.38994678544768
+      },
+      {
+        "_step": 20000,
+        "eval/episode_reward": 79.77113628458635,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 94.77425168306183
+      },
+      {
+        "_step": 22500,
+        "eval/episode_reward": 130.86844592335416,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 52.88829510665937
+      },
+      {
+        "_step": 25000,
+        "eval/episode_reward": 96.72964922066475,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 80.14819167928331
+      },
+      {
+        "_step": 27500,
+        "eval/episode_reward": 96.07517529551504,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 108.4971606124785
+      },
+      {
+        "_step": 30000,
+        "eval/episode_reward": 102.42361050598556,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 130.82502012458906
+      },
+      {
+        "_step": 32500,
+        "eval/episode_reward": 72.55937477968311,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 160.99132176636152
+      },
+      {
+        "_step": 35000,
+        "eval/episode_reward": 165.6421403106922,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 137.13945148516993
+      },
+      {
+        "_step": 37500,
+        "eval/episode_reward": 89.58825589318602,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 144.05681704141324
+      },
+      {
+        "_step": 40000,
+        "eval/episode_reward": 97.26893514468165,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 114.47706660549147
+      },
+      {
+        "_step": 42500,
+        "eval/episode_reward": 86.35170665349693,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 31.031931297076813
+      },
+      {
+        "_step": 45000,
+        "eval/episode_reward": 60.806852278550856,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 92.92373401874882
+      },
+      {
+        "_step": 47500,
+        "eval/episode_reward": 125.18191112509865,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 71.29784404080215
+      },
+      {
+        "_step": 50000,
+        "eval/episode_reward": 99.17395540228584,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 84.90248437448813
+      },
+      {
+        "_step": 52500,
+        "eval/episode_reward": 85.36579269870084,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 82.49105108607652
+      },
+      {
+        "_step": 55000,
+        "eval/episode_reward": 171.8620078924073,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 95.81126908353345
+      },
+      {
+        "_step": 57500,
+        "eval/episode_reward": 100.76212177379564,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 94.98110267040306
+      },
+      {
+        "_step": 60000,
+        "eval/episode_reward": 107.43397085542125,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 56.603741941440035
+      },
+      {
+        "_step": 62500,
+        "eval/episode_reward": 170.36169931428842,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 85.98400936837177
+      },
+      {
+        "_step": 65000,
+        "eval/episode_reward": 131.66719578187355,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 116.13015868044828
+      },
+      {
+        "_step": 67500,
+        "eval/episode_reward": 123.79939524814804,
+        "img_source": "None",
+        "project": "walker-exp-dbc",
+        "train/episode_reward": 95.85363063704564
+      }
+    ]
+  },
+  "encoding": {
+    "color": {
+      "field": "project",
+      "title": "Encoder Modes",
+      "type": "nominal"
+    },
+    "x": {
+      "field": "_step",
+      "title": "Steps",
+      "type": "quantitative"
+    },
+    "y": {
+      "field": "train/episode_reward",
+      "title": "Episode Reward (Train)",
+      "type": "quantitative"
+    }
+  },
+  "mark": {
+    "type": "line"
+  },
+  "title": "Best Models"
+}

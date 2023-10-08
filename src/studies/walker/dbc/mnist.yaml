@@ -1,0 +1,87 @@
+project_name: walker-exp-dbc
+n_trials: 81
+sampler: random
+hyperparams:
+  encoder_mode:
+    type: fixed
+    value: 'dbc'
+  decoder_lr:
+    type: categorical
+    options: [0.00001, 0.0001, 0.001]
+  encoder_lr:
+    type: categorical
+    options: [0.00001, 0.0001, 0.001]
+  num_layers:
+    type: categorical
+    options: [4, 8, 10]
+  encoder_feature_dim:
+    type: categorical
+    options: [32, 64, 128]
+base_config:
+  img_source: 'mnist'
+  num_eval_episodes: 1
+  num_eval_envs: 4
+  eval_img_sources: [color, mnist, driving_stereo]
+  episode_length: 500
+  action_repeat: 1
+  actor_beta: 0.9
+  actor_log_std_max: 2
+  actor_log_std_min: -10
+  actor_lr: 0.001
+  actor_update_freq: 2
+  agent: bisim
+  alpha_beta: 0.9
+  alpha_lr: 0.001
+  batch_size: 256
+  bisim_coef: 0.5
+  critic_beta: 0.9
+  critic_lr: 0.001
+  critic_target_update_freq: 2
+  critic_tau: 0.005
+  decoder_lr: 0.001
+  decoder_type: pixel
+  decoder_update_freq: 1
+  decoder_weight_lambda: 0.0
+  discount: 0.99
+  domain_name: walker
+  task_name: walk
+  encoder_kernel_bandwidth: auto
+  encoder_lr: 0.001
+  encoder_mode: spectral
+  encoder_normalize_loss: true
+  encoder_ortho_loss_reg: 0.0001
+  encoder_stride: 1
+  encoder_tau: 0.005
+  encoder_type: pixel
+  eval_freq: 5
+  eval_resource_files: null
+  frame_stack: 3
+  hidden_dim: 256
+  image_size: 84
+  init_steps: 1_000
+  init_temperature: 0.01
+  k: 3
+  load_encoder: null
+  logger: wandb
+  num_filters: 32
+  num_layers: 4
+  num_train_steps: 70_000
+  port: 2000
+  render: false
+  replay_buffer_capacity: 50_000
+  resource_files: null
+  reward_decoder_num_rews: 1
+  save_buffer: false
+  save_model: false
+  save_tb: true
+  save_video: false
+  seed: 1
+  total_frames: 500
+  transition_model_type: ''
+  encoder_output_dim: None
+  boxed_env: false
+  distractor: None
+  logger_img_downscale_factor: 3
+  log_dir: /${ROOT_DIR}/logdir
+  logger_video_log_freq: None
+  num_seeds: 1

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reactive Altair Charts</title>
+    <!-- Include Vega-Lite and Altair -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- Include CSS stylesheet -->
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5/dist/slate/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS for Vega charts in dark mode -->
+    <style>
+        /* Apply dark mode styles to Vega charts */
+        .vega-embed.dark-mode {
+            background-color: #222; /* Dark background color */
+        }
+
+        /* Customize chart title color */
+        .vega-embed.dark-mode .vega-actions a {
+            color: #fff; /* Light text color */
+        }
+        
+        /* Adapt chart size to the page width */
+        .chart-container {
+            width: 100%; /* 100% width of parent element */
+        }
+
+    </style>
+    <script> 
+        // Function to load and render a Vega-Lite chart from a JSON file
+        function renderChart(chartContainerId, jsonFilePath) {
+        fetch(jsonFilePath)
+            .then(response => response.json())
+            .then(spec => {
+                vegaEmbed(chartContainerId, spec, { theme: 'dark', renderer: 'svg'});
+            })
+            .catch(error => console.error('Error loading JSON:', error));
+    }
+        </script>
+</head>
+<body>
+
+    <div class="container">
+        <div class="row">
+            <!-- First Column (Column 1) -->
+            <div class="col-md-6">
+                <h2>Trained on No Distraction</h2>
+                <div id="best_model_nodist">    
+                    <script> 
+                        renderChart("#best_model_nodist", "best_models_chart_None.json");
+                    </script>
+                </div>
+            </div>
+    
+            <!-- Second Column (Column 2) -->
+            <div class="col-md-6">
+                <h2>Trained on MNIST Distraction</h2>
+                <div id="best_model_mnist">    
+                    <script> 
+                        renderChart("#best_model_mnist", "best_models_chart_mnist.json");
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <!-- First Column (Column 1) -->
+            <div class="col-md-6">
+                <h2>Trained on No Distraction</h2>
+                <div id="evals_nodist">    
+                    <script> 
+                        renderChart("#evals_nodist", "eval_distractions_None.json");
+                    </script>
+                </div>
+            </div>
+    
+            <!-- Second Column (Column 2) -->
+            <div class="col-md-6">
+                <h2>Trained on MNIST Distraction</h2>
+                <div id="evals_mnist">    
+                    <script> 
+                        renderChart("#evals_mnist", "eval_distractions_mnist.json");
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    
+    
+
+<!-- // Load and render Chart 2 from chart2.json -->
+<!-- renderChart("#chart2", "eval_distractions.json"); -->
+
+</body>
+</html>

@@ -1,0 +1,98 @@
+project_name: gridworld-invariance-exp-spectral-v2
+log_dir: /src/tune_results
+study_storage_url: mysql+mysqldb://optuna_login:OptunaLogin123@10.19.137.42/optuna
+n_trials: 1300
+sampler: random
+hyperparams:
+  encoder_mode:
+    type: fixed
+    value: 'spectral'
+  encoder_ortho_loss:
+    type: categorical
+    options: [0.0001, 0.001, 0.1]
+  distractor:
+    type: fixed
+    value: 'ideal_gas'
+  distractor_type:
+    type: fixed
+    value: 'padding'
+  distractor_img_shrink_factor:
+    type: 'fixed'
+    value: 2.0
+  decoder_lr:
+    type: categorical
+    options: [0.00001, 0.0001, 0.001]
+  encoder_lr:
+    type: categorical
+    options: [0.00001, 0.0001, 0.001]
+  distraction_level:
+    type: categorical
+    options: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+  num_layers:
+    type: categorical
+    options: [4, 8, 10]
+  seed:
+    type: categorical
+    options: [1,2,3]
+base_config:
+  action_repeat: 1
+  actor_beta: 0.9
+  actor_log_std_max: 2
+  actor_log_std_min: -10
+  actor_lr: 0.001
+  actor_update_freq: 2
+  agent: bisim
+  alpha_beta: 0.9
+  alpha_lr: 0.001
+  batch_size: 256
+  bisim_coef: 0.5
+  critic_beta: 0.9
+  critic_lr: 0.001
+  critic_target_update_freq: 2
+  critic_tau: 0.005
+  decoder_lr: 0.001
+  decoder_type: pixel
+  decoder_update_freq: 1
+  decoder_weight_lambda: 0.0
+  discount: 0.99
+  domain_name: gridworld
+  encoder_feature_dim: 50
+  encoder_kernel_bandwidth: auto
+  encoder_lr: 0.001
+  encoder_mode: spectral
+  encoder_normalize_loss: true
+  encoder_ortho_loss_reg: 0.0001
+  encoder_stride: 1
+  encoder_tau: 0.005
+  encoder_type: pixel
+  eval_freq: 10
+  eval_resource_files: null
+  frame_stack: 3
+  hidden_dim: 256
+  image_size: 84
+  img_source: null
+  init_steps: 1_000
+  init_temperature: 0.01
+  k: 3
+  load_encoder: null
+  logger: wandb
+  num_eval_episodes: 5
+  num_filters: 32
+  num_layers: 4
+  num_train_steps: 20_000
+  port: 2000
+  render: false
+  replay_buffer_capacity: 50_000
+  resource_files: null
+  reward_decoder_num_rews: 1
+  save_buffer: false
+  save_model: false
+  save_tb: true
+  save_video: false
+  seed: 1
+  task_name: simple
+  total_frames: 1000
+  transition_model_type: ''
+  work_dir: .
+  encoder_output_dim: None
+  boxed_env: false

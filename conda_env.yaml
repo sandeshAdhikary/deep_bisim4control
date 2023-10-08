@@ -12,6 +12,8 @@ dependencies:
   - mysqlclient
   - pip
   - pip:
+    - friendlywords
+    - pytz
     - mujoco
     - termcolor
     - git+https://github.com/deepmind/dm_control.git

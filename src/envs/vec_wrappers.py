@@ -28,4 +28,12 @@ class VecEnvWrapper(gym.Wrapper):
         else:
             imgs = rearrange(imgs, 'n c h w -> (n h) w c')
         return imgs
+    
+    @property
+    def base_observation_space(self):
+        return self.observation_space.shape[1:] # Skip num_envs dimension
+     
+    @property
+    def base_action_space(self):
+        return self.action_space.shape[1:] # Skip num_envs dimension
             

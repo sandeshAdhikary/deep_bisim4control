@@ -229,12 +229,15 @@ class BisimAgent(object):
                 mu = mu.flatten()
             return mu
 
-    def sample_action(self, obs):
+    def sample_action(self, obs, batched=False):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(self.device)
-            obs = obs.unsqueeze(0)
+            obs = obs.unsqueeze(0) if not batched else obs # Add batch dimension if unbatched
             mu, pi, _, _ = self.actor(obs, compute_log_pi=False)
-            return pi.cpu().data.numpy().flatten()
+            pi = pi.cpu().data.numpy()
+            if not batched:
+                pi = pi.flatten() # remove batch dimension
+            return pi
 
     def update_critic(self, obs, action, reward, next_obs, not_done, L, step):
         with torch.no_grad():
@@ -338,11 +341,6 @@ class BisimAgent(object):
 
 
     def update_encoder_spectral(self, obs, action, reward, L, step):
-        # if hasattr(self.critic.encoder, "_encoder"):
-        #     h = self.critic.encoder._encoder(obs)     
-        # else:
-        #     h = self.critic.encoder(obs)    
-
         h = self.critic.encoder(obs)        
 
         # Sample random states across episodes at random
@@ -355,10 +353,14 @@ class BisimAgent(object):
 
             # Get bi-sim distances
             r_dist = torch.cdist(reward, reward, p=1) # shape (B,B)
-            if self.transition_model_type == '':
-                transition_dist = torch.cdist(pred_next_latent_mu1, pred_next_latent_mu1, p=1) # shape (B,B)
+            if self.transition_model_type in ['', 'deterministic']:
+                transition_dist = torch.cdist(pred_next_latent_mu1, pred_next_latent_mu1, p=2) # shape (B,B)
             else:
-                raise NotImplementedError
+                mu_dist = torch.cdist(pred_next_latent_mu1, pred_next_latent_mu1, p=2)
+                sigma_sqrt = torch.sqrt(pred_next_latent_sigma1)
+                sigma_dist = torch.cdist(sigma_sqrt, sigma_sqrt, p=2)
+                transition_dist = torch.sqrt(mu_dist**2 + sigma_dist**2)
+                
             bisimilarity = r_dist + self.discount*transition_dist # shape (B,B)
 
         
