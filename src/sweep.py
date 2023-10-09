@@ -20,6 +20,7 @@ from optuna.trial import TrialState
 from mysql import connector
 from src.defaults import DEFAULTS
 import friendlywords
+from utils.utils import get_hash_id
 
 DEFAULT_OPTUNA_STORAGE = DEFAULTS['OPTUNA_STORAGE']
 
@@ -28,6 +29,8 @@ with open('src/studies/default_config.yaml', 'r') as f:
 
 
 def objective(trial, hyperparams_config, callback=None):
+
+
 
     if callback is not None:
         callback.before_trial()
@@ -44,24 +47,37 @@ def objective(trial, hyperparams_config, callback=None):
     base_config = hyperparams_config.get('base_config')
     if base_config is not None:
         config.update(base_config)
-    # config = hyperparams_config['base_config']
+
+
 
     # Update config with trial params
     hyperparams = hyperparams_config['hyperparams']
+    run_name_string = f"{trial.study._study_id}_{trial.number}"
     for param, param_config in hyperparams.items():
+        suggestion = None
         if param_config['type'] == 'float':
             log = param_config.get('log', False)
-            config[param] = trial.suggest_float(param, param_config['low'], param_config['high'], log=log)
+            suggestion = trial.suggest_float(param, param_config['low'], param_config['high'], log=log)
         elif param_config['type'] == 'int':
             step = param_config.get('step', 1)
             log = param_config.get('log', False)
-            config[param] = trial.suggest_int(param, param_config['low'], param_config['high'], step=step, log=log)
+            suggestion = trial.suggest_int(param, param_config['low'], param_config['high'], step=step, log=log)
         elif param_config['type'] == 'categorical':
-            config[param] = trial.suggest_categorical(param, choices=param_config['options'])
+            suggestion = trial.suggest_categorical(param, choices=param_config['options'])
         elif param_config['type'] == 'fixed':
             # Update base config with fixed value
-            config[param] = param_config['value']
-    
+            suggestion = param_config['value']
+
+        if suggestion is not None:
+            config[param] = suggestion
+            run_name_string = "-".join((run_name_string, f"{param}_{suggestion}"))
+
+    # Get run_id
+    project_name = hyperparams_config['project_name']
+    sweep_name = hyperparams_config['sweep_info']['sweep_name']
+    run_id = get_hash_id(run_name_string)
+    config['run_id'] = run_id
+
     avg_ep_reward = np.nan
     try:        
 
@@ -70,17 +86,16 @@ def objective(trial, hyperparams_config, callback=None):
             trial.set_user_attr("repeated_trial", True)
             raise Exception("Repeated Trial")
 
-        config['log_dir'] = 'logdir'
-        config['logger_project'] = hyperparams_config['project_name']
-        config['work_dir'] = config['log_dir']
+        config['log_dir'] = f"logdir/{project_name}/{sweep_name}/run_{run_id}"
+        config['logger_project'] = project_name
 
         # Log the sweep metadata
         config['sweep_info'] = hyperparams_config['sweep_info']
 
         # Add optuna trial info to trainer
         config['sweep_config'] = {
-            'study_name': hyperparams_config['project_name'],
-            'sweep_name': hyperparams_config['sweep_info']['sweep_name'],
+            'study_name': project_name,
+            'sweep_name': sweep_name,
             'optuna_trial': trial,
             'optuna_storage': hyperparams_config['study_storage_url'],
         }
