@@ -1,5 +1,5 @@
 sweeper:
-  method: random
+  method: grid
   sweeper_type: wandb
   goal: maximize
   name: spectral
