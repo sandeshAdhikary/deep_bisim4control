@@ -262,8 +262,12 @@ class DeepMDPAgent(object):
 
         self.decoder.log(L, step, log_freq=LOG_FREQ)
 
-    def update(self, replay_buffer, L, step):
-        obs, action, _, reward, next_obs, not_done = replay_buffer.sample()
+    def update(self, replay_buffer, L, step, replay_buffer_sample=None):
+        if replay_buffer_sample is None:
+            obs, action, _, reward, next_obs, not_done = replay_buffer.sample()
+        else:
+            obs, action, _, reward, next_obs, not_done = replay_buffer_sample
+
 
         L.log('train/batch_reward', reward.mean(), step)
 

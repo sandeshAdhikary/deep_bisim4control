@@ -8,11 +8,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from glob import glob
 
 from src.utils import utils
 from src.models.sac_ae import  Actor, Critic, LOG_FREQ
 from src.models.transition_model import make_transition_model
 from sklearn.cluster import MiniBatchKMeans, KMeans
+import os
 
 class BisimAgent(object):
     """Bisimulation metric algorithm."""
@@ -54,7 +56,7 @@ class BisimAgent(object):
         encoder_normalize_loss=True,
         encoder_ortho_loss_reg=1e-3,
         reward_decoder_num_rews=1,
-        encoder_output_dim=None
+        encoder_output_dim=None,
     ):
         self.device = device
         self.discount = discount
@@ -80,17 +82,6 @@ class BisimAgent(object):
         self.critic = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_output_dim=encoder_output_dim
-        ).to(device)
-
-        self.critic_target = Critic(
-            obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_output_dim=encoder_output_dim
-        ).to(device)
-
-        self.critic_target.load_state_dict(self.critic.state_dict())
-
-        self.transition_model = make_transition_model(
-            transition_model_type, encoder_output_dim, action_shape
         ).to(device)
 
         self.reward_decoder_num_rews = reward_decoder_num_rews
@@ -119,6 +110,22 @@ class BisimAgent(object):
                                                             n_init="auto",
                                                             batch_size=512,
                                                             random_state=123)
+
+
+        # Load agent if agent_load_path specified        
+        # Set up target networks for actor and critic
+        self.critic_target = Critic(
+            obs_shape, action_shape, hidden_dim, encoder_type,
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_output_dim=encoder_output_dim
+        ).to(device)
+
+        self.critic_target.load_state_dict(self.critic.state_dict())
+
+        self.transition_model = make_transition_model(
+            transition_model_type, encoder_output_dim, action_shape
+        ).to(device)
+
+
 
         # tie encoders between actor and critic
         self.actor.encoder.copy_conv_weights_from(self.critic.encoder)
@@ -470,28 +477,54 @@ class BisimAgent(object):
                 self.critic.encoder, self.critic_target.encoder,
                 self.encoder_tau
             )
-
             
-    def save(self, model_dir, step):
-        torch.save(
-            self.actor.state_dict(), '%s/actor_%s.pt' % (model_dir, step)
-        )
-        torch.save(
-            self.critic.state_dict(), '%s/critic_%s.pt' % (model_dir, step)
-        )
-        torch.save(
-            self.reward_decoder.state_dict(),
-            '%s/reward_decoder_%s.pt' % (model_dir, step)
-        )
+    def save(self, model_dir, filename = None, step=None, checkpoint=False):
 
-    def load(self, model_dir, step):
-        self.actor.load_state_dict(
-            torch.load('%s/actor_%s.pt' % (model_dir, step))
-        )
-        self.critic.load_state_dict(
-            torch.load('%s/critic_%s.pt' % (model_dir, step))
-        )
-        self.reward_decoder.load_state_dict(
-            torch.load('%s/reward_decoder_%s.pt' % (model_dir, step))
-        )
+        if checkpoint:
+            step = 'chkpt'
 
+        constructor_params = {'actor': self.actor.state_dict(),
+                            'critic': self.critic.state_dict(),
+                            'reward_decoder': self.reward_decoder.state_dict(),
+                            'transition_model': self.transition_model.state_dict(),
+                            'log_alpha': self.log_alpha,
+                            }
+
+        if checkpoint:
+            constructor_params.update({
+                'actor_optimizer': self.actor_optimizer.state_dict(),
+                'critic_optimizer': self.critic_optimizer.state_dict(),
+                'log_alpha_optimizer': self.log_alpha_optimizer.state_dict(),
+                'decoder_optimizer': self.decoder_optimizer.state_dict()
+                })
+
+        model_dict = {name: value for (name,value) in constructor_params.items()}
+
+        filename = filename or f'{model_dir}/model_{step}.pt'
+        torch.save(model_dict, filename)
+        
+
+
+    def load(self, model_dir, step=None, checkpoint=False):
+
+        if checkpoint:
+            step = 'chkpt'
+    
+        # # Load the model_dict
+        model_dict = torch.load(f'{model_dir}/model_{step}.pt')
+
+        for name,value in model_dict.items():
+            module = getattr(self, name)
+            if hasattr(module, 'load_state_dict'):
+                module.load_state_dict(value)
+            elif torch.is_tensor(module):
+                module = value
+            else:
+                raise ValueError(f"Unknown module type for checkpoint loading: {module}")
+
+    ###########
+    def save_checkpoint(self, model_dir):
+        self.save(model_dir, checkpoint=True)
+
+    def load_checkpoint(self, model_dir):
+        self.load(model_dir, checkpoint=True)

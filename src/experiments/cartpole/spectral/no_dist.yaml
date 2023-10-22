@@ -3,21 +3,21 @@ log_dir: /src/tune_results
 n_trials: 1300
 sampler: random
 hyperparams:
-  encoder_mode:
-    type: fixed
-    value: 'spectral'
-  decoder_lr:
-    type: categorical
-    options: [0.00001, 0.0001, 0.001]
+  # encoder_mode:
+  #   type: fixed
+  #   value: 'spectral'
+  # decoder_lr:
+  #   type: categorical
+  #   options: [0.00001, 0.0001, 0.001]
   encoder_lr:
     type: categorical
     options: [0.00001, 0.0001, 0.001]
-  num_layers:
-    type: categorical
-    options: [4, 8, 10]
-  encoder_feature_dim:
-    type: categorical
-    options: [32, 64, 128]
+  # num_layers:
+  #   type: categorical
+  #   options: [4, 8, 10]
+  # encoder_feature_dim:
+  #   type: categorical
+  #   options: [32, 64, 128]
   encoder_ortho_loss:
     type: categorical
     options: [0.0001, 0.001, 0.1]

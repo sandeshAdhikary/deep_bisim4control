@@ -12,6 +12,8 @@ dependencies:
   - mysqlclient
   - pip
   - pip:
+    - git+https://github.com/sandeshAdhikary/trainer.git
+    - lightning
     - friendlywords
     - pytz
     - mujoco

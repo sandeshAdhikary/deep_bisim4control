@@ -1,11 +1,16 @@
 import torch
 import numpy as np
+from types import SimpleNamespace
 from src.agent.baseline_agent import BaselineAgent
-from src.agent.bisim_agent import BisimAgent
+from src.agent.bisim_agent_trainer import BisimAgent
 from src.agent.bisim_agent_decomp import BisimAgentDecomp
 from src.agent.deepmdp_agent import DeepMDPAgent
 
 def make_agent(obs_shape, action_shape, args, device):
+    
+    if isinstance(args, dict):
+        args = SimpleNamespace(**args)
+
     if (args.agent is None) or (args.agent == np.nan):
         raise ValueError("args.agent is None or NaN")
     if args.agent == 'baseline':
@@ -33,12 +38,13 @@ def make_agent(obs_shape, action_shape, args, device):
             encoder_tau=args.encoder_tau,
             encoder_stride=args.encoder_stride,
             decoder_type=args.decoder_type,
-            decoder_lr=args.decoder_lr,
+            decder_lr=args.decoder_lr,
             decoder_update_freq=args.decoder_update_freq,
             decoder_weight_lambda=args.decoder_weight_lambda,
             transition_model_type=args.transition_model_type,
             num_layers=args.num_layers,
-            num_filters=args.num_filters
+            num_filters=args.num_filters,
+            agent_load_path=args.agent_load_path,
         )
     elif args.agent == 'bisim':
         agent = BisimAgent(
@@ -77,7 +83,7 @@ def make_agent(obs_shape, action_shape, args, device):
             encoder_ortho_loss_reg=args.encoder_ortho_loss_reg,
             encoder_mode=args.encoder_mode,
             reward_decoder_num_rews=args.reward_decoder_num_rews,
-            encoder_output_dim=args.encoder_output_dim
+            encoder_output_dim=args.encoder_output_dim,
         )
     elif args.agent == 'bisim_decomp':
         agent = BisimAgentDecomp(
@@ -118,7 +124,8 @@ def make_agent(obs_shape, action_shape, args, device):
             reward_decoder_num_rews=args.reward_decoder_num_rews,
             encoder_output_dim=args.encoder_output_dim,
             use_cagrad=args.use_cagrad,
-            reward_decomp_method=args.reward_decomp_method
+            reward_decomp_method=args.reward_decomp_method,
+            agent_load_path=args.agent_load_path
         )
     elif args.agent == 'deepmdp':
         agent = DeepMDPAgent(
@@ -150,7 +157,8 @@ def make_agent(obs_shape, action_shape, args, device):
             decoder_weight_lambda=args.decoder_weight_lambda,
             transition_model_type=args.transition_model_type,
             num_layers=args.num_layers,
-            num_filters=args.num_filters
+            num_filters=args.num_filters,
+            agent_load_path=args.agent_load_path
         )
 
     if args.load_encoder:

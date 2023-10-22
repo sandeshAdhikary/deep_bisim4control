@@ -46,7 +46,7 @@ if __name__ == "__main__":
     api = wandb.Api()
     entity = api.default_entity
 
-    project_names = ['cartpole-exp-spectral', 'cartpole-exp-dbc']
+    project_names = ['cartpole_spectral_ortho', 'cartpole_dbc_seeds']
     # project_names = ['walker-exp-spectral', 'walker-exp-dbc']
     for img_source in ['mnist', None]:
         metric = 'eval/episode_reward'
@@ -57,10 +57,11 @@ if __name__ == "__main__":
         # Get the best runs
         def run_filter_fn(run):
             keep_run = run.config['img_source'] == img_source
-            if run.config.get('logger_tags'):
-                keep_run = keep_run and ('best' in run.config['logger_tags'])
-            else:
-                keep_run = False
+            # if run.config.get('logger_tags'):
+            #     keep_run = keep_run and ('best' in run.config['logger_tags'])
+            # else:
+            #     keep_run = False
+            # keep_run = keep_run and ('current' in run.tags)
             return keep_run
         
         # Get all runs
@@ -96,7 +97,7 @@ if __name__ == "__main__":
         full_df = pd.merge(df_std, df_mean, on=['project', 'step'])
         charts = []
         # Create the Altair chart
-        envs = {'env_0':'Moving MNIST', 
+        envs = {'env_0':'No Distraction', 
                 'env_1':'Color', 
                 'env_2':'Moving MNIST', 
                 'env_3':'Driving Videos'}

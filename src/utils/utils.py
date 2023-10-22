@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from einops import rearrange
 from copy import copy
+import hashlib
 
 class eval_mode(object):
     def __init__(self, *models):
@@ -239,7 +240,6 @@ class FrameStack(gym.Wrapper):
 
     def step(self, action):
         out = self.env.step(action)
-        # TODO: How should truncated vs terminated be handled?
         if len(out) == 4:
             obs, reward, done, info = out
             truncated = terminated = done
@@ -271,3 +271,12 @@ def plot_to_array(figure, image_mode='hwc'):
   if image_mode =='chw':
       image = rearrange(image, 'h w c -> c h w')
   return image
+
+def get_hash_id(input_string, max_length=10):
+    """
+    Map an input string to a hash_id of a given length
+    """
+    assert max_length <= 64, f"Max length for hash_id is 64. But {max_length} provided"
+    hashed = hashlib.sha256(input_string.encode()).hexdigest()
+    hashed = ''.join([c for c in hashed if c.isalnum()])[:max_length]
+    return hashed

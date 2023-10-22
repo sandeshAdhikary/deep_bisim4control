@@ -1,331 +1,192 @@
-import numpy as np
-from sklearn.datasets import load_iris
-from sklearn.linear_model import SGDClassifier
-from sklearn.model_selection import train_test_split
-from tqdm import trange
-import optuna
-from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, insert, values, text, JSON
-import json
-import pytz
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
-tz = pytz.timezone('America/Los_Angeles')
-from src.utils.optuna_utils.storage import CustomRDBStorage
-from src.train.train import run_train
+
+from trainer import Logger, Model, Sweeper
+from trainer.rl import RLTrainer
+
+# Project specific imports
+from src.train.setup_env import make_env
+from src.train.make_agent import make_agent
+
+from typing import Dict
+import os
+from copy import copy
 import yaml
-import optuna
-from functools import partial
-import numpy as np
-from optuna.trial import TrialState
-from mysql import connector
-from src.defaults import DEFAULTS
-import friendlywords
-from utils.utils import get_hash_id
-
-DEFAULT_OPTUNA_STORAGE = DEFAULTS['OPTUNA_STORAGE']
-
-with open('src/studies/default_config.yaml', 'r') as f:
-    DEFAULT_HYPERPARAMS = yaml.safe_load(f)
+import wandb
 
 
-def objective(trial, hyperparams_config, callback=None):
+class BisimModel(Model):
 
-
-
-    if callback is not None:
-        callback.before_trial()
-
-    # Set sweep metadata
-    for key, value in hyperparams_config['sweep_info'].items():
-        trial.set_user_attr(key, value)
-
-
-    # Load the default config from default_config
-    config = DEFAULT_HYPERPARAMS.copy()
-
-    # Update with any base_config params provided in the hyperparams_config file
-    base_config = hyperparams_config.get('base_config')
-    if base_config is not None:
-        config.update(base_config)
-
-
-
-    # Update config with trial params
-    hyperparams = hyperparams_config['hyperparams']
-    run_name_string = f"{trial.study._study_id}_{trial.number}"
-    for param, param_config in hyperparams.items():
-        suggestion = None
-        if param_config['type'] == 'float':
-            log = param_config.get('log', False)
-            suggestion = trial.suggest_float(param, param_config['low'], param_config['high'], log=log)
-        elif param_config['type'] == 'int':
-            step = param_config.get('step', 1)
-            log = param_config.get('log', False)
-            suggestion = trial.suggest_int(param, param_config['low'], param_config['high'], step=step, log=log)
-        elif param_config['type'] == 'categorical':
-            suggestion = trial.suggest_categorical(param, choices=param_config['options'])
-        elif param_config['type'] == 'fixed':
-            # Update base config with fixed value
-            suggestion = param_config['value']
-
-        if suggestion is not None:
-            config[param] = suggestion
-            run_name_string = "-".join((run_name_string, f"{param}_{suggestion}"))
-
-    # Get run_id
-    project_name = hyperparams_config['project_name']
-    sweep_name = hyperparams_config['sweep_info']['sweep_name']
-    run_id = get_hash_id(run_name_string)
-    config['run_id'] = run_id
-
-    avg_ep_reward = np.nan
-    try:        
-
-        if is_trial_repeated(trial):
-            # Check if trial should be pruned based on params (e.g. repeated config already in database)
-            trial.set_user_attr("repeated_trial", True)
-            raise Exception("Repeated Trial")
-
-        config['log_dir'] = f"logdir/{project_name}/{sweep_name}/run_{run_id}"
-        config['logger_project'] = project_name
-
-        # Log the sweep metadata
-        config['sweep_info'] = hyperparams_config['sweep_info']
-
-        # Add optuna trial info to trainer
-        config['sweep_config'] = {
-            'study_name': project_name,
-            'sweep_name': sweep_name,
-            'optuna_trial': trial,
-            'optuna_storage': hyperparams_config['study_storage_url'],
-        }
-
-        avg_ep_reward, exception = run_train(config)
-
-        if exception is not None:
-            raise exception
-        
-    except (Exception, ValueError, AssertionError) as e:
-        if isinstance(e, optuna.TrialPruned):
-            raise e
-
-    if callback is not None:
-        callback.after_trial()
-
-    return avg_ep_reward
-
-class TuningCallback():
-    def __init__(self, config):
-        self.project_name = config.get('project_name', None)
-        self.run_backup_script = config.get('run_backup_script', False)
-        self.pruner = config.get('pruner', None)
-        
-    def before_trial(self):
-        pass
-
-    def after_trial(self):
-        pass
-
-def is_trial_repeated(trial):
-    """
-    https://stackoverflow.com/questions/58820574/how-to-sample-parameters-without-duplicates-in-optuna
-    """
-
-    trials = trial.study.get_trials(deepcopy=False)
-    
-    numbers=np.array([t.number for t in trials if t.state in [TrialState.COMPLETE, 
-                                                              TrialState.PRUNED,
-                                                              TrialState.RUNNING,
-                                                              ]])
-
-    # Check if there exists trials with params from complete,pruned or running trials
-    successful_trials = [trial.params==t.params for t in trials if t.state in [TrialState.COMPLETE, 
-                                                                                TrialState.PRUNED,
-                                                                                TrialState.RUNNING,
-                                                                                ]]
-    
-    # Don´t evaluate function if another with same params has been/is being evaluated before this one
-    bool_params= np.array(successful_trials).astype(bool)
-    if np.sum(bool_params)>0:
-        if trial.number>np.min(numbers[bool_params]):
-            return True
-
-    return False
-
-
-def dry_run_args_update(hyperparams_config):
-    hyperparams_config['project_name'] = hyperparams_config['project_name'] + '_dryrun'
-
-    hyperparams_config['base_config']['episode_length'] = 5
-    hyperparams_config['base_config']['init_steps'] = 5
-    hyperparams_config['base_config']['eval_freq'] = 3
-    hyperparams_config['base_config']['num_train_steps'] = 20
-
-    print(f"Doing a dry run of the sweep")
-
-    return hyperparams_config
-
-def get_sweep_info(config):
-
-    # sweep_info = {
-    #     'sweep_name': config['sweep_info']['sweep_name'],
-    # }
-    return config
-
-
-def study_exists(study_name, optuna_storage):
-    # Check if study exists in the storage
-    username, storage_str = optuna_storage.split("://")[1].split(":")
-    password, storage_str = storage_str.split("@")
-    host, database = storage_str.split("/")
-    mysql_config = {
-        'user': username,
-        'password': password,
-        'host': host,
-        'database': database,
-    }
-    cnx = connector.connect(**mysql_config)
-    cursor = cnx.cursor()
-
-    query = f"SELECT * FROM studies WHERE study_name='{study_name}'"
-    cursor.execute(query)
-    tables = cursor.fetchall()
-    return len(tables) > 0
-
-def create_new_study(hyperparams_config):
-
-    sampler = create_sampler(hyperparams_config)
-    pruner = create_pruner(hyperparams_config)
-
-    study = optuna.create_study(direction='maximize', 
-                                study_name=project_name,
-                                storage=optuna_storage,
-                                load_if_exists=False,
-                                pruner=pruner,
-                                sampler=sampler,
-                                )
-    return study
-
-
-def create_sampler(hyperparams_config):
-    # Set the sampler
-    sampler_type = hyperparams_config['sweep_info']['sampler']
-    if sampler_type == 'random':
-        sampler = optuna.samplers.RandomSampler()
-    elif sampler_type == 'grid':
-        # Define search space
-        search_space = {}
-        for param, param_config in hyperparams_config['hyperparams'].items():
-            if param_config['type'] == 'categorical':
-                param_options = param_config['options']
-                search_space[param] = param_options
-
-
-        sampler = optuna.samplers.GridSampler(search_space)
-    else:
-        raise ValueError("Unknown Sampler")
-    return sampler
-
-def create_pruner(hyperparams_config):
-    # Set the pruner
-    pruner_type = hyperparams_config['sweep_info'].get('pruner')
-    if pruner_type == 'hyperband':
-        raise NotImplementedError
-    elif pruner_type == 'asha':
-        min_iters = hyperparams_config['sweep_info'].get('pruner_min_iter', None)
-        if min_iters is None:
-            # use 10% of max_iters as default
-            min_iters = int(0.1*hyperparams_config['base_config']['num_train_steps'])
-        pruner = optuna.pruners.SuccessiveHalvingPruner(min_resource=min_iters)
-    else:
-        print("No pruner specified, using None")
-        return None
-
-    return pruner
-
-def random_sweep_name(optuna_storage_url):
-    engine = create_engine(optuna_storage_url)
-    with engine.connect() as conn:
-        stmt = "SELECT sweep_name FROM sweeps"
-        out = conn.execute(text(stmt))
-        sweep_name = '-'.join(friendlywords.generate('po').split(' '))
-        attempts = 0
-        while sweep_name in out:
-            sweep_name = '-'.join(friendlywords.generate('po').split(' '))
-            attempts += 1
-            if attempts > 100:
-                raise Exception(f"Couldn't generate a random sweep name in {attempts} attempts")
-
-    return sweep_name
-
-def sweep_exists(url, sweep_name, study):
-    engine = create_engine(url)
-    with engine.connect() as conn:
-        stmt = f"SELECT sweep_name FROM sweeps WHERE study_id={study._study_id}"
-        sweep_names = [x[0] for x in conn.execute(text(stmt))]
-        sweep_exists = sweep_name in sweep_names
-    return sweep_exists
-
-def create_sweep(url, sweep_name, study, config):
-    engine = create_engine(url)
-    with engine.connect() as conn:
-        existing_sweep_ids = list(conn.execute(text("SELECT sweep_id FROM sweeps")))
-        if len(existing_sweep_ids) == 0:
-            sweep_id = 0
-        else:
-            sweep_id = existing_sweep_ids[-1][0] + 1
-
-        stmnt = f"""
-        INSERT INTO sweeps (sweep_id, study_id, sweep_name, config) 
-        VALUES (:sweep_id, :study_id, :sweep_name, :config)
+    def __init__(self, config: Dict):
         """
-        conn.execute(text(stmnt), [{"sweep_id": sweep_id,
-                                    "study_id": study._study_id, 
-                                    "sweep_name": sweep_name,
-                                    "config": json.dumps(config)}])
-        conn.commit()
-    # return sweep_exists
+        Define self.model here
+        """
+        super().__init__(config)
+
+        model_config = copy(config)
+        self.model = make_agent(
+            obs_shape=model_config.pop('obs_shape'),
+            action_shape=model_config.pop('action_shape'),
+            device=model_config.get('device'),
+            args=model_config,
+        )
+
+    @property
+    def module_path(self):
+        return 'src.train.train_new'
+        
+    def parse_config(self, config):
+
+        # Set encoder output dim to be feature dim if not set
+        if not isinstance(config['encoder_output_dim'], int):
+            config['encoder_output_dim'] = config['encoder_feature_dim']
+
+        # If using cluster encoders, num_rews is the same as encoder's output dim
+        if 'cluster' in config['encoder_type']:
+            config['reward_decoder_num_rews'] = config['encoder_output_dim']
+
+        return config
+
+    def training_step(self, batch, batch_idx, step):
+        return self.model.update(batch, step)
+    
+    def save_model(self, filename, save_optimizers=True):
+        self.model.save(model_dir=os.path.dirname(filename),
+                        filename=os.path.basename(filename),
+                        save_optimizers=save_optimizers
+                        )
+
+    def load_model(self, model_file=None, model_dir=None, chkpt_name=None):
+        if model_file is not None:
+            self.model.load(model_file=model_file)
+        else:
+            chkpt_name = chkpt_name or 'eval_checkpoint'
+            self.model.load(model_dir=model_dir, step=chkpt_name)
+
+    def train(self):
+        self.model.train()
+
+    def eval(self):
+        self.model.eval()
+
+    def zero_grad(self):
+        self.model.zero_grad()
+
+    def sample_action(self, obs, batched=False):
+        """
+        Sample action from model. May be non-deterministic
+        """
+        return self.model.sample_action(obs, batched=batched)
+
+    def select_action(self, obs, batched=False):
+        """
+        Select action from model. Should be deterministic
+        """
+        return self.model.select_action(obs, batched=batched)
+
+
+class BisimRLTrainer(RLTrainer):
+
+    @property
+    def module_path(self):
+        return 'src.train.train_new'
+
+    def make_env(self, config):
+        """
+        Return an env given a config
+        """
+        return make_env(config)
+    
+    def train_step(self, batch, batch_idx=None):
+        """
+        Overwriting parent method to add 'step' argument to model.training_step
+        """
+        # The model's training step also needs access to trainer.step
+        train_step_output = self.model.training_step(batch, batch_idx, step=self.step)
+        self.train_log.append({'step': self.step, 'log': train_step_output})
+
+    def parse_config(self, config: Dict):
+
+        if config.get('img_source') in ['none', 'None']:
+            config['env']['img_source'] = None
+
+        return config
+    
+    def log_epoch(self, info: Dict):
+        super().log_epoch(info)
+        if len(self.train_log) >= 1:
+            # Log metrics from train_log
+            last_log = self.train_log[-1]['log']
+            trainer_step = self.train_log[-1]['step']
+            self.logger.log(log_dict={'trainer_step': trainer_step,
+                                      'train/critic/loss':last_log['critic']['loss']})
+            if last_log['actor_and_alpha'] is not None:
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/actor/loss':last_log['actor_and_alpha']['loss']})
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/actor/target_entropy':last_log['actor_and_alpha']['target_entropy']})
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/actor/entropy':last_log['actor_and_alpha']['entropy']})
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/alpha/loss':last_log['actor_and_alpha']['alpha_loss']})
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/alpha/value':last_log['actor_and_alpha']['alpha_value']})
+            self.logger.log(log_dict={'trainer_step': trainer_step,
+                                      'train/encoder/loss':last_log['encoder']['encoder_loss']})
+            ortho_loss = last_log['encoder'].get('ortho_loss')
+            if ortho_loss is not None:
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/encoder/ortho_loss':ortho_loss})
+            dist_loss = last_log['encoder'].get('dist_loss')
+            if dist_loss is not None:
+                self.logger.log(log_dict={'trainer_step': trainer_step,
+                                        'train/encoder/dist_loss':dist_loss})
+        if len(self.eval_log) >= 1:
+            last_log = self.eval_log[-1]['log']
+            trainer_step = self.eval_log[-1]['step']
+            # Log individiaul episode rewards
+            avg_env_episode_rewards = last_log.get('avg_env_episode_rewards')
+            if (avg_env_episode_rewards is not None) and len(avg_env_episode_rewards) > 1:
+                for ide, env_rew in enumerate(avg_env_episode_rewards):
+                    self.logger.log(log_dict={'eval_step': int(trainer_step),
+                                              f'eval/episode_reward/env_{ide}': float(env_rew)})                
+                    
+            # Get obs video
+            obs_video = last_log.get('obs_video')
+
+            if obs_video is not None:
+                #TODO: Need to set up obs_video to take in dict
+                pass
+
+def objective(project_name=None, default_params=None, run_id=None, sweep_callback=None):
+    run = None
+    if run_id is not None:
+        run = wandb.init(project=project_name, 
+                        id=run_id, 
+                        resume='must',
+                        dir=default_params['logger']['dir'])
+
+    # Instantiate trainer
+    trainer = BisimRLTrainer(default_params['trainer'])
+    # Set up model
+    default_params['model'].update(trainer.env.get_env_shapes())
+    model = BisimModel(default_params['model'])
+    trainer.set_model(model)
+    # Set up logger
+    logger = Logger(default_params['logger'], run=run)
+    trainer.set_logger(logger)
+    # Train
+    trainer.fit()
+
 
 if __name__ == "__main__":
+
     import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str)
+    parser.add_argument('--num_runs', type=int, default=1)
+    args = parser.parse_args()  
 
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--config', type=str, help="Path to hyperparams config file")
-    argparser.add_argument('--dryrun', action='store_true', help="Dry run", default=False)
-    args = argparser.parse_args()
+    config = yaml.safe_load(open(args.config, 'r'))
 
-    hyperparams_config = yaml.safe_load(open(args.config, 'r'))
+    sweeper = Sweeper(config, BisimRLTrainer, BisimModel, Logger)
 
-    if args.dryrun:
-        hyperparams_config = dry_run_args_update(hyperparams_config)
-
-    project_name = hyperparams_config['project_name']
-    
-
-    optuna_storage_url = hyperparams_config.get('study_storage_url')
-    if optuna_storage_url is None:
-        optuna_storage_url=DEFAULT_OPTUNA_STORAGE
-        hyperparams_config['study_storage_url'] = optuna_storage_url
-    optuna_storage = CustomRDBStorage(url=optuna_storage_url)
-
-    # TODO: Sampler and pruner should be sweep specific not study specific
-    if study_exists(project_name, optuna_storage_url):
-        # Load existing study
-        pruner = create_pruner(hyperparams_config)
-        sampler = create_sampler(hyperparams_config)
-        study = optuna.load_study(study_name=project_name, storage=optuna_storage, pruner=pruner, sampler=sampler)
-    else:
-        # Create new study
-        study = create_new_study(hyperparams_config)
-
-    sweep_name=hyperparams_config['sweep_info'].get('sweep_name')
-    if sweep_name is None:
-        sweep_name = random_sweep_name(optuna_storage_url)
-        hyperparams_config['sweep_info']['sweep_name'] = sweep_name
-
-    if not sweep_exists(optuna_storage_url, sweep_name, study):
-        create_sweep(optuna_storage_url, sweep_name, study, hyperparams_config)
-
-
-    partial_objective = partial(objective, hyperparams_config=hyperparams_config)
-    study.optimize(partial_objective)
+    sweeper.sweep(count=args.num_runs)

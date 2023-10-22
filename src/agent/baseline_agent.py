@@ -47,7 +47,7 @@ class BaselineAgent(object):
         decoder_weight_lambda=0.0,
         transition_model_type='deterministic',
         num_layers=4,
-        num_filters=32
+        num_filters=32,
     ):
         self.device = device
         self.discount = discount

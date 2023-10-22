@@ -30,15 +30,15 @@ class TrainingCallback():
         config = config or {}
 
         # Set up working dir and save args
-        self.work_dir = config.get('work_dir', '.')
-        self.model_dir = utils.make_dir(os.path.join(self.work_dir, 'model'))
-        self.buffer_dir = utils.make_dir(os.path.join(self.work_dir, 'buffer'))
+        self.log_dir = config.get('logdir', '.')
+        self.model_dir = utils.make_dir(os.path.join(self.log_dir, 'model'))
+        self.buffer_dir = utils.make_dir(os.path.join(self.log_dir, 'buffer'))
         # Save snapshot of input args
         self.train_args = config.get('train_args', None)
-        utils.make_dir(self.work_dir)
+        utils.make_dir(self.log_dir)
         if self.train_args is not None:
             # If train_args provided, save them as json
-            with open(os.path.join(self.work_dir, 'args.json'), 'w') as f:
+            with open(os.path.join(self.log_dir, 'args.json'), 'w') as f:
                 args_to_save = deepcopy(vars(self.train_args))
                 args_to_save['sweep_config'] = None # Don't save since it is not serializable
                 args_to_save['sweep_info'] = None # Don't save since it is not serializable
@@ -46,12 +46,16 @@ class TrainingCallback():
 
         # Model saving:
         self.save_model_mode = config.get('save_model_mode', None)
-        assert self.save_model_mode in [None, 'best', 'last', 'all']
+        if self.save_model_mode not in [None, 'none', 'None', 'all']:
+            # Other option is "every_<int>"
+            save_every = self.save_model_mode.split("_")
+            assert len(save_every) == 2 and save_every[0] == 'every' and save_every[1].isdigit()
+        # Note: the best model is always saved
         self.best_eval_reward = -np.inf
 
         # Set up video recorder
         save_video = config.get('save_video', False)
-        video_dir = utils.make_dir(os.path.join(self.work_dir, 'video'))
+        video_dir = utils.make_dir(os.path.join(self.log_dir, 'video'))
         self.video = VideoRecorder(video_dir if save_video else None)
         self.num_eval_episodes = config.get('num_eval_episodes', 1)
         
@@ -88,9 +92,15 @@ class TrainingCallback():
 
         eval_reward = self.evaluate(self.env, agent, self.video, self.num_eval_episodes, logger, step)
         if self.save_model_mode == 'all':
-            # save model
-            agent.save(self.model_dir, step)
-        elif self.save_model_mode == 'best' and eval_reward >= self.best_eval_reward:
+            logger.log_agent('train/agent', agent, step)
+        elif self.save_model_mode.startswith('every'):
+            
+            if step % int(self.save_model_mode.split("_")[1]) == 0:
+                logger.log_agent('train/agent', agent, step)
+        
+
+        # Save the best model
+        if eval_reward >= self.best_eval_reward:
             # save model
             agent.save(self.model_dir, f"step_{step}_best")
             self.best_eval_reward = eval_reward
@@ -346,8 +356,9 @@ class SweepCallback():
         self.study_name = config['study_name']
         self.optuna_trial = config.get('optuna_trial')
         self.optuna_storage = config.get('optuna_storage')
-        self.study_id = self.optuna_trial.study._study_id
-        self.sweep_id = self._get_sweep_id(self.sweep_name)
+        if self.optuna_trial is not None:
+            self.study_id = self.optuna_trial.study._study_id
+            self.sweep_id = self._get_sweep_id(self.sweep_name)
 
 
         

@@ -14,3 +14,7 @@ LOG_DIR: '${ROOT_DIR}/logdir'
 MNIST_IMAGES_PATH: 'src/data/distractor_images/mnist/*.png'
 DRIVING_STEREO_IMAGES_PATH: 'src/data/distractor_images/driving_stereo/*.jpg'
 DMC2GYM_EVAL_ACTIONS_FOLDER: 'src/data/dmc2gym_eval_actions'
+
+# Wandb Run Queue
+WANDB_RUN_QUEUE_PATH: 'mysql+mysqldb://wandb_user:wandbLine1!@10.19.137.42/wandb_run_queue'
+
