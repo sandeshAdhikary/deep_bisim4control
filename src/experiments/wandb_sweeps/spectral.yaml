@@ -14,7 +14,7 @@ trainer:
   eval_freq: &eval_freq 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1
-  num_train_steps: &num_train_steps 5000
+  num_train_steps: &num_train_steps 3000
   port: 2000
   save_buffer: false
   save_model: false
