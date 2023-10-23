@@ -31,7 +31,7 @@ class BisimModel(Model):
 
     @property
     def module_path(self):
-        return 'src.train.sweep'
+        return 'src.sweep'
         
     def parse_config(self, config):
 
@@ -87,7 +87,7 @@ class BisimRLTrainer(RLTrainer):
 
     @property
     def module_path(self):
-        return 'src.train.sweep'
+        return 'src.sweep'
 
     def make_env(self, config):
         """
