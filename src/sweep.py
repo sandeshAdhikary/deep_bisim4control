@@ -188,7 +188,7 @@ if __name__ == "__main__":
     args = parser.parse_args()  
 
     # config = yaml.safe_load(open(args.config, 'r'))
-    config = EnvYAML(args.config)
+    config = dict(EnvYAML(args.config))
 
     sweeper = Sweeper(config, BisimRLTrainer, BisimModel, Logger)
 
