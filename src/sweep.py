@@ -180,12 +180,15 @@ def objective(project_name=None, default_params=None, run_id=None, sweep_callbac
 if __name__ == "__main__":
 
     import argparse
+    from envyaml import EnvYAML
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str)
     parser.add_argument('--num_runs', type=int, default=1)
     args = parser.parse_args()  
 
-    config = yaml.safe_load(open(args.config, 'r'))
+    # config = yaml.safe_load(open(args.config, 'r'))
+    config = EnvYAML(args.config)
 
     sweeper = Sweeper(config, BisimRLTrainer, BisimModel, Logger)
 
