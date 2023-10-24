@@ -1,4 +1,4 @@
 # Project paths
-MNIST_IMAGES_PATH: '{$PROJECT_DIR}/src/data/distractor_images/mnist/*.png'
-DRIVING_STEREO_IMAGES_PATH: '{$PROJECT_DIR}/src/data/distractor_images/driving_stereo/*.jpg'
-DMC2GYM_EVAL_ACTIONS_FOLDER: '{$PROJECT_DIR}/src/data/dmc2gym_eval_actions'
+MNIST_IMAGES_PATH: '${PROJECT_DIR}/src/data/distractor_images/mnist/*.png'
+DRIVING_STEREO_IMAGES_PATH: '${PROJECT_DIR}/src/data/distractor_images/driving_stereo/*.jpg'
+DMC2GYM_EVAL_ACTIONS_FOLDER: '${PROJECT_DIR}/src/data/dmc2gym_eval_actions'
