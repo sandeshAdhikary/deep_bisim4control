@@ -95,7 +95,7 @@ model: &model_params
   reward_decomp_method: eigenrewards
 logger:
   sw: wandb
-  dir: '${LOG_DIR}'
+  dir: LOG_DIR
   img_downscale_factor: 3
   minimal: false
   project: *project
