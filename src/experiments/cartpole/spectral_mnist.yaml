@@ -1,22 +1,17 @@
 sweeper:
-  method: random
+  method: grid
   sweeper_type: wandb
   goal: maximize
-  name: test_sweep_1
-  project: &project misc
+  name: spectral_mnist
+  project: &project cartpole
   load_runs_from_queue: true
   parameters:
     model:
-      discount: {values: [0.97, 0.98, 0.99]}
-      encoder_mode: {values: [spectral, dbc]}
-    trainer:
-      env:
-        seed: {values: [8]}
+      encoder_ortho_loss_reg: {values: [1.0, 0.01, 0.001]}
 trainer:
-  # run_id: haqtzm02
   seed: &seed 1 
   batch_size: 128
-  eval_freq: &eval_freq 1_000 # every n epochs
+  eval_freq: &eval_freq 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1
   num_train_steps: &num_train_steps 3000
@@ -28,22 +23,22 @@ trainer:
   save_model_mode: None
   device: &device cuda
   terminal_display: rich
-  save_checkpoint_freq: 1_000 # every epoch
+  save_checkpoint_freq: 500 # every epoch
   async_eval: true
   log_length_train: 10
   log_length_eval: 10
   load_from_checkpoint: true
   env:
     seed: *seed
-    domain_name: cheetah
-    task_name: run
+    domain_name: cartpole
+    task_name: swingup
     distraction_level: 0.2
     distractor: None
     distractor_img_shrink_factor: 1.3
     distractor_type: None
     episode_length: 1_000
     image_size: 88
-    img_source: null
+    img_source: mnist
     frame_stack: 3
     num_envs: 1
     render: false
@@ -109,4 +104,3 @@ logger:
   num_train_steps: *num_train_steps
   eval_freq: *eval_freq
   cleanup: true # delete logdir after training
-
