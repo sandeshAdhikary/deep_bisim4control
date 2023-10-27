@@ -1,20 +1,21 @@
 sweeper:
-  method: grid
+  method: random
   sweeper_type: wandb
   goal: maximize
-  name: dbc_1
-  project: &project cartpole
+  name: &sweep dbc
+  project: &project test_1
   load_runs_from_queue: true
+  heartbeat_timeout: 10
   parameters:
     trainer:
       seed: {values: [1, 2, 3]}
 trainer:
   seed: &seed 1 
   batch_size: 128
-  eval_freq: &eval_freq 10_000 # every n epochs
-  init_steps: 1_000
+  eval_freq: &eval_freq 500 # every n epochs
+  init_steps: 1_00
   num_eval_episodes: 1
-  num_train_steps: &num_train_steps 1_000_000
+  num_train_steps: &num_train_steps 100_000
   port: 2000
   save_buffer: false
   save_model: false
@@ -23,11 +24,13 @@ trainer:
   save_model_mode: None
   device: &device cuda
   terminal_display: rich
-  save_checkpoint_freq: 10_000 # every epoch
+  save_checkpoint_freq: 2_000 # every epoch
   async_eval: true
   log_length_train: 10
   log_length_eval: 10
   load_from_checkpoint: true
+  load_checkpoint_type: zip
+  log_checkpoint: true # save checkpoint to logger (e.g. wandb)
   env:
     seed: *seed
     domain_name: cartpole
@@ -49,10 +52,30 @@ trainer:
   eval_env:
     num_envs: 5
     episode_length: 500
-    seed: 321
   replay_buffer:
     # Defaults from DBC paper
     replay_buffer_capacity: 100_000 # paper used 1M, but we don't have memory
+  storage:
+    input:
+      type: ssh
+      project: *project
+      sweep: *sweep
+      # run: None
+      root_dir: $SSH_DIR
+      sub_dir: train
+      host: $SSH_HOST
+      username: $SSH_USERNAME
+      password: $SSH_PASSWORD 
+    output:
+      type: ssh
+      project: *project
+      sweep: *sweep
+      # run: None
+      root_dir: $SSH_DIR
+      sub_dir: train
+      host: $SSH_HOST
+      username: $SSH_USERNAME
+      password: $SSH_PASSWORD
 model: &model_params
   device: *device
   # Defaults from DBC paper
@@ -105,6 +128,7 @@ logger:
   num_train_steps: *num_train_steps
   eval_freq: *eval_freq
   cleanup: true # delete logdir after training
+  log_freq: 100 # epochs
 evaluator:
   project: *project
   sweep: null
@@ -112,7 +136,7 @@ evaluator:
   num_envs: 3
   max_eval_jobs: 2
   async_eval: true
-  model_name: checkpoint.zip
+  model_name: ckpt.zip
   saved_model_type: zip
   save_output: true
   storage:

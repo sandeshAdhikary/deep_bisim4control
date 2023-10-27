@@ -478,11 +478,13 @@ class BisimAgent(object):
                 self.encoder_tau
             )
             
-    def save(self, model_dir, filename = None, step=None, checkpoint=False):
-
+    def save(self, model_dir, filename = None, step=None, checkpoint=False, save_optimizers=True):
         if checkpoint:
             step = 'chkpt'
-
+        filename = filename or f'{model_dir}/model_{step}.pt'
+        torch.save(self.state_dict(optimizers=save_optimizers), filename)
+        
+    def state_dict(self, optimizers=True):
         constructor_params = {'actor': self.actor.state_dict(),
                             'critic': self.critic.state_dict(),
                             'reward_decoder': self.reward_decoder.state_dict(),
@@ -490,7 +492,7 @@ class BisimAgent(object):
                             'log_alpha': self.log_alpha,
                             }
 
-        if checkpoint:
+        if optimizers:
             constructor_params.update({
                 'actor_optimizer': self.actor_optimizer.state_dict(),
                 'critic_optimizer': self.critic_optimizer.state_dict(),
@@ -499,19 +501,20 @@ class BisimAgent(object):
                 })
 
         model_dict = {name: value for (name,value) in constructor_params.items()}
-
-        filename = filename or f'{model_dir}/model_{step}.pt'
-        torch.save(model_dict, filename)
-        
+        return model_dict
 
 
-    def load(self, model_dir, step=None, checkpoint=False):
+    def load(self, state_dict=None, model_dir=None, step=None, checkpoint=False):
 
         if checkpoint:
             step = 'chkpt'
-    
+
         # # Load the model_dict
-        model_dict = torch.load(f'{model_dir}/model_{step}.pt')
+        if state_dict is not None:
+            model_dict = state_dict
+        else:
+            assert model_dir is not None
+            model_dict = torch.load(f'{model_dir}/model_{step}.pt')
 
         for name,value in model_dict.items():
             module = getattr(self, name)

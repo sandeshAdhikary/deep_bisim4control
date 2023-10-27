@@ -1,3 +1,0 @@
-agent
-dmc2gym
-local_dm_control_suite

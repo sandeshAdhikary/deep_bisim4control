@@ -534,7 +534,11 @@ class BisimAgent(object):
         return update_step_info
             
     def save(self, model_dir, filename=None, step=None, save_optimizers=False):
-
+        filename = filename or f'model_{step}.pt'
+        torch.save(self.state_dict(save_optimizers=save_optimizers),
+                    f'{model_dir}/{filename}')
+                
+    def state_dict(self, save_optimizers=True):
         constructor_params = {'actor': self.actor.state_dict(),
                             'critic': self.critic.state_dict(),
                             'critic_target': self.critic_target.state_dict(),
@@ -553,19 +557,18 @@ class BisimAgent(object):
                 'encoder_optimizer': self.encoder_optimizer.state_dict()
                 })
 
-        # model_dict = {name: value for (name,value) in constructor_params.items()}
-
-        filename = filename or f'model_{step}.pt'
-        torch.save(constructor_params, f'{model_dir}/{filename}')
-        
+        model_dict = {name: value for (name,value) in constructor_params.items()}
+        return model_dict
 
 
-    def load(self, model_file= None, model_dir=None, step=None, checkpoint=False):
+    def load(self, state_dict=None, model_file= None, model_dir=None, step=None, checkpoint=False):
 
         if checkpoint:
             step = 'chkpt'
-        
-        if model_file is not None:
+ 
+        if state_dict is not None:
+            model_dict = state_dict
+        elif model_file is not None:
             model_dict = torch.load(model_file)    
         else:
             # # Load the model_dict

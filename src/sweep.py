@@ -9,8 +9,6 @@ from src.train.make_agent import make_agent
 from typing import Dict
 import os
 from copy import copy
-import yaml
-import wandb
 
 
 class BisimModel(Model):
@@ -48,14 +46,19 @@ class BisimModel(Model):
     def training_step(self, batch, batch_idx, step):
         return self.model.update(batch, step)
     
+    def state_dict(self, **kwargs):
+        return self.model.state_dict(**kwargs)
+    
     def save_model(self, filename, save_optimizers=True):
         self.model.save(model_dir=os.path.dirname(filename),
                         filename=os.path.basename(filename),
                         save_optimizers=save_optimizers
                         )
 
-    def load_model(self, model_file=None, model_dir=None, chkpt_name=None):
-        if model_file is not None:
+    def load_model(self, state_dict=None, model_file=None, model_dir=None, chkpt_name=None):
+        if state_dict is not None:
+            self.model.load(state_dict=state_dict)
+        elif model_file is not None:
             self.model.load(model_file=model_file)
         else:
             chkpt_name = chkpt_name or 'eval_checkpoint'
@@ -81,7 +84,7 @@ class BisimModel(Model):
         Select action from model. Should be deterministic
         """
         return self.model.select_action(obs, batched=batched)
-
+    
 
 class BisimRLTrainer(RLTrainer):
 
@@ -156,27 +159,6 @@ class BisimRLTrainer(RLTrainer):
                 #TODO: Need to set up obs_video to take in dict
                 pass
 
-def objective(project_name=None, default_params=None, run_id=None, sweep_callback=None):
-    run = None
-    if run_id is not None:
-        run = wandb.init(project=project_name, 
-                        id=run_id, 
-                        resume='must',
-                        dir=default_params['logger']['dir'])
-
-    # Instantiate trainer
-    trainer = BisimRLTrainer(default_params['trainer'])
-    # Set up model
-    default_params['model'].update(trainer.env.get_env_shapes())
-    model = BisimModel(default_params['model'])
-    trainer.set_model(model)
-    # Set up logger
-    logger = Logger(default_params['logger'], run=run)
-    trainer.set_logger(logger)
-    # Train
-    trainer.fit()
-
-
 if __name__ == "__main__":
 
     import argparse
@@ -187,7 +169,6 @@ if __name__ == "__main__":
     parser.add_argument('--num_runs', type=int, default=1)
     args = parser.parse_args()  
 
-    # config = yaml.safe_load(open(args.config, 'r'))
     config = dict(EnvYAML(args.config))
 
     sweeper = Sweeper(config, BisimRLTrainer, BisimModel, Logger)
