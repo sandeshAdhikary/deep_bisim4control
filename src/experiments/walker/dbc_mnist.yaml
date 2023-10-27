@@ -52,6 +52,27 @@ trainer:
   replay_buffer:
     # Defaults from DBC paper
     replay_buffer_capacity: 100_000 # paper used 1M, but we don't have memory
+  storage:
+    input:
+      type: ssh
+      project: *project
+      sweep: *sweep
+      # run: None
+      root_dir: $SSH_DIR
+      sub_dir: train
+      host: $SSH_HOST
+      username: $SSH_USERNAME
+      password: $SSH_PASSWORD 
+    output:
+      type: ssh
+      project: *project
+      sweep: *sweep
+      # run: None
+      root_dir: $SSH_DIR
+      sub_dir: train
+      host: $SSH_HOST
+      username: $SSH_USERNAME
+      password: $SSH_PASSWORD
 model: &model_params
   device: *device
   # Defaults from DBC paper
@@ -104,3 +125,4 @@ logger:
   num_train_steps: *num_train_steps
   eval_freq: *eval_freq
   cleanup: true # delete logdir after training
+  log_freq: 100 # epochs
