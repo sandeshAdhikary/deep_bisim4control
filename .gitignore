@@ -4,4 +4,5 @@
 *.mp4
 *.png
 set_env.sh
+src/set_env.sh 
 */__pycache__/
