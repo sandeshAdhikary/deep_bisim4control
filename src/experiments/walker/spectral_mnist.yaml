@@ -2,7 +2,7 @@ sweeper:
   method: grid
   sweeper_type: wandb
   goal: maximize
-  name: spectral_mnist
+  name: &sweep spectral_mnist
   project: &project walker
   load_runs_from_queue: true
   parameters:

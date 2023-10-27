@@ -1,5 +1,8 @@
-# Test: multi_env_eval
-class Experiment():
+class MultiDistractorExperiment():
+    """
+    Experiment to test the generalization of RL models on multiple distrctor environments
+    """
+
 
     def __init__(self, config):
         self.project = config['project']
