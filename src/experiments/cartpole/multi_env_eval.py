@@ -42,7 +42,13 @@ class MultiDistractorExperiment():
         pass
 
 
+if __name__ == "__main__":
 
+    config = {
+        'project': 'cartpole',
+    }
+
+    experiment = MultiDistractorExperiment(config)
 
 
 

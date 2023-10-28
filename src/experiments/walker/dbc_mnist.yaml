@@ -57,7 +57,6 @@ trainer:
       type: ssh
       project: *project
       sweep: *sweep
-      # run: None
       root_dir: $SSH_DIR
       sub_dir: train
       host: $SSH_HOST
@@ -67,7 +66,6 @@ trainer:
       type: ssh
       project: *project
       sweep: *sweep
-      # run: None
       root_dir: $SSH_DIR
       sub_dir: train
       host: $SSH_HOST
