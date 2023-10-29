@@ -2,13 +2,15 @@ sweeper:
   method: random
   sweeper_type: wandb
   goal: maximize
-  name: &sweep dbc
-  project: &project test_1
-  load_runs_from_queue: true
+  name: &sweep spectral
+  project: &project test
+  load_runs_from_queue: false
   heartbeat_timeout: 10
   parameters:
     trainer:
       seed: {values: [1, 2, 3]}
+    model:
+      actor_lr : {values: [0.1, 0.001, 0.0001]}
 trainer:
   seed: &seed 1 
   batch_size: 128
@@ -24,7 +26,7 @@ trainer:
   save_model_mode: None
   device: &device cuda
   terminal_display: rich
-  save_checkpoint_freq: 2_000 # every epoch
+  save_checkpoint_freq: 800 # every epoch
   async_eval: true
   log_length_train: 10
   log_length_eval: 10
@@ -103,7 +105,7 @@ model: &model_params
   decoder_update_freq: 1
   decoder_weight_lambda: 0.000001
   encoder_kernel_bandwidth: auto
-  encoder_mode: dbc
+  encoder_mode: spectral
   encoder_normalize_loss: true
   encoder_ortho_loss_reg: 0.0001
   encoder_output_dim: null
@@ -135,7 +137,7 @@ evaluator:
   run: &run qujgtq2d
   num_envs: 3
   max_eval_jobs: 2
-  async_eval: true
+  async_eval: false
   model_name: ckpt.zip
   saved_model_type: zip
   save_output: true
@@ -150,9 +152,9 @@ evaluator:
       run: *run
       root_dir: /home/sandesh/bisim/
       sub_dir: eval
-      host: 10.19.137.42
-      username: sandesh
-      password: letmein
+      host: $SSH_HOST
+      username: $SSH_USERNAME
+      password: $SSH_PASSWORD
   envs:
     mnist_env:
       seed: *seed
