@@ -2,9 +2,9 @@ sweeper:
   method: random
   sweeper_type: wandb
   goal: maximize
-  name: &sweep spectral
+  name: &sweep new
   project: &project test
-  load_runs_from_queue: false
+  load_runs_from_queue: true
   heartbeat_timeout: 10
   parameters:
     trainer:
@@ -17,7 +17,7 @@ trainer:
   eval_freq: &eval_freq 500 # every n epochs
   init_steps: 1_00
   num_eval_episodes: 1
-  num_train_steps: &num_train_steps 100_000
+  num_train_steps: &num_train_steps 3000
   port: 2000
   save_buffer: false
   save_model: false
