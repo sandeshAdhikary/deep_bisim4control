@@ -28,6 +28,8 @@ trainer:
   log_length_train: 10
   log_length_eval: 10
   load_from_checkpoint: true
+  load_checkpoint_type: zip
+  log_checkpoint: true # save checkpoint to logger (e.g. wandb)
   env:
     seed: *seed
     domain_name: walker
