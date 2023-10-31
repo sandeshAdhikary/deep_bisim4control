@@ -8,20 +8,6 @@ from trainer.storage import SSHFileSystemStorage
 import os
 from trainer.utils import flatten_dict
 
-# "PROJECT_DIR": "/project",
-# "LOG_DIR": "/project/logdir",
-# "SSH_DIR":"/home/sandesh/bisim",
-# "SSH_HOST":"10.19.137.42",
-# "SSH_USERNAME":"sandesh",
-# "SSH_PASSWORD":"letmein"
-
-os.environ['PROJECT_DIR'] = '/project'
-os.environ['LOG_DIR'] = '/project/logdir'
-os.environ['SSH_DIR'] = '/home/sandesh/bisim'
-os.environ['SSH_HOST'] = '10.19.137.42'
-os.environ['SSH_USERNAME'] = 'sandesh'
-os.environ['SSH_PASSWORD'] = 'letmein'
-
 
 def exclude_key(x):
     exclude = False
@@ -91,10 +77,10 @@ if __name__ == '__main__':
     st.write("Welcome")
 
     # Connect to the experiment database
-    mysql_host = '10.19.137.42'
+    mysql_host = os.environ['SSH_HOST']
     mysql_port = 3306
-    mysql_user = 'sandesh'
-    mysql_password = 'bisim'
+    mysql_user = os.environ['SSH_USERNAME']
+    mysql_password = os.environ['SSH_PASSWORD']
     mysql_db = 'bisim'
     conn = st.connection(
         name='bisim',
