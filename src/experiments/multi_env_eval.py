@@ -14,6 +14,9 @@ from typing import Dict
 import os
 from copy import copy, deepcopy
 import mysql.connector
+from trainer.storage import Storage
+from warnings import warn
+from tqdm import tqdm
 
 class BisimModel(Model):
 
@@ -103,7 +106,7 @@ class BisimRLEvaluator(RLEvaluator):
         mysql_host = os.environ['SSH_HOST']
         mysql_port = 3306
         mysql_user = os.environ['SSH_USERNAME']
-        mysql_password = os.environ['SSH_PASSWORD']
+        mysql_password = os.environ['MYSQL_PASSWORD']
         mysql_db = 'bisim'
         table_name = 'episode_rewards'
 
@@ -147,9 +150,11 @@ class BisimRLEvaluator(RLEvaluator):
         if metric_table_exists is None:
             cursor.execute(f"""CREATE TABLE {metric} (
                            run_id VARCHAR(255),
+                           sweep_id VARCHAR(255),
                            eval_id VARCHAR(255),
                            eval_name VARCHAR(255),
                            value FLOAT,
+                           value_std FLOAT,
                            step INT,
                            PRIMARY KEY (run_id, eval_id, step)
             )""")
@@ -160,6 +165,10 @@ class BisimRLEvaluator(RLEvaluator):
         env_ids = []
         for env in info.keys():
             data = info[env][metric]
+            if len(data.shape) == 1:
+                data = data.reshape(-1, 1)
+            data_mean = np.mean(data, axis=1)
+            data_std = np.std(data, axis=1)
             # Get env id: hash the env config
             env_config = deepcopy(self.config['envs'][env])
             env_config.pop('seed') # Remove seed before hasing
@@ -167,11 +176,13 @@ class BisimRLEvaluator(RLEvaluator):
             env_id = hashlib.sha256(env_config.encode())
             env_id = env_id.hexdigest()
             env_ids.append(env_id)
-            for idx,d in enumerate(data):
+            for idx in range(len(data)):
+                d_mean = data_mean[idx]
+                d_std = data_std[idx]
                 cursor.execute(f"""INSERT INTO {metric} \
-                            (run_id, eval_id, eval_name, step, value) \
-                            VALUES ('{self.run}', '{env_id}', '{env}', {idx}, {float(d)}) \
-                            ON DUPLICATE KEY UPDATE value = {float(d)};
+                            (run_id, sweep_id, eval_id, eval_name, step, value, value_std) \
+                            VALUES ('{self.run}', '{self.sweep}', '{env_id}', '{env}', {idx}, {float(d_mean)}, {float(d_std)}) \
+                            ON DUPLICATE KEY UPDATE value = {float(d_mean)}, value_std = {float(d_std)} \
                             """)
         db_conn.commit()
 
@@ -187,7 +198,9 @@ class MultiDistractorExperiment():
         self.exp_config = config['experiment']
         self.project = self.exp_config['project']
         self.evaluator_cls = evaluator_cls
-        self.model_cls = model_cls        
+        self.model_cls = model_cls   
+        # Connect to storage where runs are saved
+        # self.storage = Storage(config['experiment']['storage'])     
 
     def train(self, config):
         pass
@@ -226,10 +239,10 @@ class MultiDistractorExperiment():
         model_state_dict = evaluator.input_storage.load_from_archive('ckpt.zip', 
                                                         filenames='model_ckpt.pt',
                                                         filetypes='torch')
+        # Load the training history
+        # history = evaluator.input_storage.load_from_archive('ckpt.zip',
+        #                                                     filenames=['logger.pt'])
 
-        #TODO: The model_config needs to be saved in the runs folder
-        #      so we can pull it here
-        # config['model'].update(evaluator.eval_envs.get_env_shapes())
         model=model_cls(model_config)
         model.load_model(state_dict=model_state_dict['model_ckpt.pt'])
 
@@ -263,8 +276,8 @@ if __name__ == "__main__":
     from envyaml import EnvYAML
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
-    parser.add_argument('--run', type=str, required=True)
-    parser.add_argument('--sweep', type=str)
+    # parser.add_argument('--run', type=str, required=True)
+    # parser.add_argument('--sweep', type=str)
     args = parser.parse_args()
 
     config = dict(EnvYAML(args.config))
@@ -275,5 +288,32 @@ if __name__ == "__main__":
                                            evaluator_cls=evaluator_cls,
                                            model_cls=model_cls
                                            )
+    
+    # Get list of sweeps and runs
+    runs = {
+        'walker' : {
+            'dbc' : ['vu1p1ooc'],
+            'dbc_mnist': ['hdkhw10u'],
+            'spectral': ['5bt5v8zk'],
+            'spectral_mnist': ['lhl4z9ek']
+        }
+    }
 
-    experiment.evaluate(run=args.run, sweep=args.sweep)
+    # runs = {
+    #     'cheetah' : {
+    #         'dbc' : ['vu1p1ooc', '6wnwgoqz'],
+    #         'dbc_mnist': ['hdkhw10u','sa39esuy'],
+    #         'spectral': ['5bt5v8zk','08ilqgne'],
+    #         'spectral_mnist': ['lhl4z9ek','dlhtncgp']
+    #     }
+    # }
+
+
+    for project in runs.keys():
+        for sweep in tqdm(runs[project].keys()):
+            for run in runs[project][sweep]:
+                try:
+                    print(f"Running run {run} in sweep {sweep}")
+                    experiment.evaluate(run=run, sweep=sweep)
+                except FileNotFoundError:
+                    print(f'Could not find run {run} in sweep {sweep}')

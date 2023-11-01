@@ -2,9 +2,9 @@ sweeper:
   method: random
   sweeper_type: wandb
   goal: maximize
-  name: &sweep new
+  name: &sweep new_test_1
   project: &project test
-  load_runs_from_queue: true
+  load_runs_from_queue: false
   heartbeat_timeout: 10
   parameters:
     trainer:
