@@ -3,7 +3,7 @@ sweeper:
   sweeper_type: wandb
   goal: maximize
   name: &sweep spectral
-  project: &project walker
+  project: &project walker_new
   load_runs_from_queue: true
   parameters:
     model:

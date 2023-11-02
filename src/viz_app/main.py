@@ -6,6 +6,11 @@ import pandas as pd
 import numpy as np
 from trainer.storage import SSHFileSystemStorage
 import os
+import torch
+from einops import rearrange
+import time
+import imageio
+from io import BytesIO
 
 def flatten_multiindex(df):
     df.columns = ['_'.join(col).strip() for col in df.columns.values if len(str(col).strip()) > 1]
@@ -23,7 +28,7 @@ def exclude_key(x):
     return exclude
 
 def get_runs(conn, project):
-    df = conn.query("select * from runs")
+    df = conn.query(f"select * from runs where project_id='{project}'")
     # # Load configs for each run
     all_dicts = []
     all_keys = []
@@ -44,6 +49,7 @@ def get_runs(conn, project):
             'password': os.environ['SSH_PASSWORD']
         }
         storage = SSHFileSystemStorage(ssh_storage_config)
+
         # Get configs with flattened keys
         try:
             model_config = storage.load(filename='model_config.yaml', filetype='env_yaml')
@@ -61,6 +67,9 @@ def get_runs(conn, project):
             all_keys.append(set([x[0] for x in run_dict]))
         except FileNotFoundError:
                 pass
+    
+
+                
     all_keys = set.union(*all_keys)
     matching_keys =  set([x[0] for x in set.intersection(*all_dicts)])
     diff_keys = all_keys - matching_keys
@@ -70,13 +79,13 @@ def get_runs(conn, project):
          all_dicts[idx] = {k:v for k,v in all_dicts[idx] if k in diff_keys}
     df = pd.DataFrame(all_dicts)    
     df['tag'] = [None]*len(df)
+
     return df
 
 def get_metrics(conn, runs, metric):
     run_names = str(tuple(runs))
     df = conn.query(f"SELECT * FROM {metric} where run_id in {run_names}")
     return df
-
 
 def plot(avg_values, error_mode, metric):
     for eval_name in avg_values['eval_name'].unique():
@@ -165,36 +174,9 @@ def plot_agg(input_data, error_mode, metric):
             chart = bar_chart + line_high
             st.altair_chart(chart, use_container_width=True)
 
-if __name__ == '__main__':
 
-    st.write("Welcome")
+def plot_metric(conn, runs, metric, group_cols):
 
-    project = 'walker'
-
-    # Connect to the experiment database
-    mysql_host = os.environ['SSH_HOST']
-    mysql_port = 3306
-    mysql_user = os.environ['SSH_USERNAME']
-    mysql_password = os.environ['MYSQL_PASSWORD']
-    mysql_db = 'bisim'
-    conn = st.connection(
-        name='bisim',
-        type='sql',
-        url=f"mysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_db}"
-    )
-
-    runs = get_runs(conn, project=project)
-    runs = st.data_editor(runs)
-
-    # Select columns to group by
-    default_group_cols = []
-    if 'seed' in runs.columns:
-        default_group_cols.append('seed')
-    group_cols = st.multiselect(label='Group by', options=runs.columns, default=default_group_cols)
-
-
-    # st.write(runs)
-    metric = 'episode_rewards'
     metrics = get_metrics(conn, runs['run_id'], metric)
 
     if len(group_cols) == 0:
@@ -252,3 +234,122 @@ if __name__ == '__main__':
         
 
             plot(avg_values, error_mode, metric)
+
+
+def get_eval_imgs(project, runs):
+    eval_imgs = {}
+    for idx,row in runs.iterrows():
+        run = row['run_id']
+        sweep = row['sweep']
+        # Connect to the ssh storage to retrieve files
+        ssh_storage_config = {
+            'type': 'ssh',
+            'project': project,
+            'sweep': sweep,
+            'run': run,
+            'root_dir': os.environ['SSH_DIR'],
+            'sub_dir': 'eval',
+            'host': os.environ['SSH_HOST'],
+            'username': os.environ['SSH_USERNAME'],
+            'password': os.environ['SSH_PASSWORD']
+        }
+        storage = SSHFileSystemStorage(ssh_storage_config)
+        filenames = storage.get_filenames()
+        eval_files = [os.path.basename(filename).rstrip('\n') for filename in filenames if filename.startswith("eval") and filename.endswith(".pt\n")]
+        eval_imgs[f"{sweep}--{run}"] = {}
+        for eval_file in eval_files:
+            obses = storage.load(filename=eval_file, filetype='torch')['episode_obs']
+            eval_imgs[f"{sweep}--{run}"][eval_file.rstrip('.pt').lstrip('eval_output_')] = obses
+    return eval_imgs
+
+def play_video(img_container, imgs):
+    for step in range(imgs.shape[0]):
+        update_video(img_container, imgs[step,:])
+        # img_container.image(imgs[step,:])
+        
+
+def update_video(video, img):
+    video.image(img)
+    time.sleep(0.1)
+
+# def play_videos(img_containers, img_lists):
+    # for img_container in img_containers:
+
+
+
+def array_to_video(image_frames):
+    # Create a BytesIO object to store the video
+    video_bytesio = BytesIO()
+
+    # Define some video parameters
+    fps = 24  # Frames per second
+
+    # Create a video writer
+    with imageio.get_writer(video_bytesio, format='mp4', mode='I', fps=fps) as writer:
+        for frame in image_frames:
+            writer.append_data(frame)
+    
+    return video_bytesio
+
+def plot_eval_imgs(project, runs, group_cols):
+    eval_imgs = get_eval_imgs(project, runs) # keys are {sweep_run}
+
+    if len(group_cols) == 0:
+        group_cols = ['run_id']
+
+
+    for sweep_run in eval_imgs.keys():
+        sweep, run = sweep_run.split('--')
+        env_names = eval_imgs[sweep_run].keys()
+        all_envs = []
+        for env_name in env_names:
+            imgs = eval_imgs[sweep_run][env_name] # (T,3,H,W)
+            imgs = rearrange(imgs, 't c h w -> t h w c')
+            all_envs.append(imgs)
+        all_envs = rearrange(np.stack(all_envs), 'n t h w c -> t h (n w) c') # stack horizontally
+        vid_object = array_to_video(all_envs)
+        run_title = []
+        for col in group_cols:
+            col_value = runs[runs['run_id']==run][col].values[0]
+            run_title.append(f"{col}={str(col_value)}")
+        run_title = pretty_title(' | '.join([x for x in run_title]))
+        st.subheader(run_title)
+        vid_object = st.video(vid_object, format='video/webm')
+
+
+if __name__ == '__main__':
+    
+    from envyaml import EnvYAML
+    
+    config_path = st.text_input("Enter config path", value="src/experiments/cartpole/experiment_config.yaml")
+    if len(config_path) > 0:
+        config = dict(EnvYAML(config_path))
+        project = config['experiment']['project']
+
+        # Connect to the experiment database
+        mysql_host = os.environ['SSH_HOST']
+        mysql_port = 3306
+        mysql_user = os.environ['SSH_USERNAME']
+        mysql_password = os.environ['MYSQL_PASSWORD']
+        mysql_db = 'bisim'
+        conn = st.connection(
+            name='bisim',
+            type='sql',
+            url=f"mysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_db}"
+        )
+
+        runs = get_runs(conn, project=config['experiment']['project'])
+        runs = st.data_editor(runs)
+
+        # Select columns to group by
+        default_group_cols = []
+        group_cols = st.multiselect(label='Group by', options=runs.columns, default=default_group_cols)
+
+        metrics_tab, imgs_tab = st.tabs(["Metrics", "Videos"])
+
+        with imgs_tab:
+            # pass
+            plot_eval_imgs(project, runs, group_cols)
+        with metrics_tab:
+            metric = 'episode_rewards'
+            plot_metric(conn, runs, metric, group_cols)

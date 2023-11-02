@@ -3,7 +3,7 @@ sweeper:
   sweeper_type: wandb
   goal: maximize
   name: &sweep dbc
-  project: &project cheetah
+  project: &project cheetah_new
   load_runs_from_queue: true
   parameters:
     trainer:

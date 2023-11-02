@@ -104,11 +104,9 @@ class BisimRLEvaluator(RLEvaluator):
     def after_eval(self, info):
        
         mysql_host = os.environ['SSH_HOST']
-        mysql_port = 3306
         mysql_user = os.environ['SSH_USERNAME']
         mysql_password = os.environ['MYSQL_PASSWORD']
         mysql_db = 'bisim'
-        table_name = 'episode_rewards'
 
         db_conn = mysql.connector.connect(
             host=mysql_host,
@@ -124,9 +122,11 @@ class BisimRLEvaluator(RLEvaluator):
         experiment_table_exists = cursor.fetchone()
         if experiment_table_exists is None:
             cursor.execute(f"""CREATE TABLE runs (
-                run_id VARCHAR(255),
-                sweep_id VARCHAR(255),
-                PRIMARY KEY (run_id, sweep_id)
+                           run_id VARCHAR(255),
+                           sweep_id VARCHAR(255),
+                           project_id VARCHAR(255),
+                           folder VARCHAR(255),
+                           PRIMARY KEY (run_id, sweep_id)
             )""")
             db_conn.commit()
 
@@ -137,54 +137,58 @@ class BisimRLEvaluator(RLEvaluator):
         run_exists = cursor.fetchone()
         if run_exists is None:
             cursor.execute(f"""INSERT INTO runs \
-                        (run_id, sweep_id) \
-                        VALUES ('{self.run}', '{self.sweep}') \
+                        (run_id, sweep_id, project_id, folder) \
+                        VALUES ('{self.run}', '{self.sweep}', '{self.project}', '{self.output_storage.dir}') \
                         """)
 
         db_conn.commit()
+        metrics = ['episode_rewards']
 
-        metric = 'episode_rewards'
-        # Check if metric table exist; if not, create metric table
-        cursor.execute(f"SHOW TABLES LIKE '{metric}'")
-        metric_table_exists = cursor.fetchone()
-        if metric_table_exists is None:
-            cursor.execute(f"""CREATE TABLE {metric} (
-                           run_id VARCHAR(255),
-                           sweep_id VARCHAR(255),
-                           eval_id VARCHAR(255),
-                           eval_name VARCHAR(255),
-                           value FLOAT,
-                           value_std FLOAT,
-                           step INT,
-                           PRIMARY KEY (run_id, eval_id, step)
-            )""")
+        for metric in metrics:
+
+            metric = 'episode_rewards'
+            # Check if metric table exist; if not, create metric table
+            cursor.execute(f"SHOW TABLES LIKE '{metric}'")
+            metric_table_exists = cursor.fetchone()
+            if metric_table_exists is None:
+                cursor.execute(f"""CREATE TABLE {metric} (
+                               run_id VARCHAR(255),
+                               sweep_id VARCHAR(255),
+                               project_id VARCHAR(255),
+                               eval_id VARCHAR(255),
+                               eval_name VARCHAR(255),
+                               value FLOAT,
+                               value_std FLOAT,
+                               step INT,
+                               PRIMARY KEY (run_id, eval_id, step)
+                )""")
+                db_conn.commit()
+
+            # Get env_id from info
+            # If two envs have the same config except for their seed, they get the same env_id
+            env_ids = []
+            for env in info.keys():
+                data = info[env][metric]
+                if len(data.shape) == 1:
+                    data = data.reshape(-1, 1)
+                data_mean = np.mean(data, axis=1)
+                data_std = np.std(data, axis=1)
+                # Get env id: hash the env config
+                env_config = deepcopy(self.config['envs'][env])
+                env_config.pop('seed') # Remove seed before hasing
+                env_config = json.dumps(env_config)
+                env_id = hashlib.sha256(env_config.encode())
+                env_id = env_id.hexdigest()
+                env_ids.append(env_id)
+                for idx in range(len(data)):
+                    d_mean = data_mean[idx]
+                    d_std = data_std[idx]
+                    cursor.execute(f"""INSERT INTO {metric} \
+                                (run_id, sweep_id, project_id, eval_id, eval_name, step, value, value_std) \
+                                VALUES ('{self.run}', '{self.sweep}', '{self.project}', '{env_id}', '{env}', {idx}, {float(d_mean)}, {float(d_std)}) \
+                                ON DUPLICATE KEY UPDATE value = {float(d_mean)}, value_std = {float(d_std)} \
+                                """)
             db_conn.commit()
-
-        # Get env_id from info
-        # If two envs have the same config except for their seed, they get the same env_id
-        env_ids = []
-        for env in info.keys():
-            data = info[env][metric]
-            if len(data.shape) == 1:
-                data = data.reshape(-1, 1)
-            data_mean = np.mean(data, axis=1)
-            data_std = np.std(data, axis=1)
-            # Get env id: hash the env config
-            env_config = deepcopy(self.config['envs'][env])
-            env_config.pop('seed') # Remove seed before hasing
-            env_config = json.dumps(env_config)
-            env_id = hashlib.sha256(env_config.encode())
-            env_id = env_id.hexdigest()
-            env_ids.append(env_id)
-            for idx in range(len(data)):
-                d_mean = data_mean[idx]
-                d_std = data_std[idx]
-                cursor.execute(f"""INSERT INTO {metric} \
-                            (run_id, sweep_id, eval_id, eval_name, step, value, value_std) \
-                            VALUES ('{self.run}', '{self.sweep}', '{env_id}', '{env}', {idx}, {float(d_mean)}, {float(d_std)}) \
-                            ON DUPLICATE KEY UPDATE value = {float(d_mean)}, value_std = {float(d_std)} \
-                            """)
-        db_conn.commit()
 
 
 class MultiDistractorExperiment():
@@ -223,6 +227,7 @@ class MultiDistractorExperiment():
         evaluator_config['storage']['input']['sub_dir'] = 'train'
         
         # Set output storage to run: to upload results
+        evaluator_config['storage']['output']['overwrite'] = True
         evaluator_config['storage']['output']['run'] = run
         evaluator_config['storage']['output']['sub_dir'] = 'eval'
         if sweep is not None:
@@ -237,14 +242,17 @@ class MultiDistractorExperiment():
         model_config = evaluator.input_storage.load('model_config.yaml', 
                                                     filetype='yaml')
         model_state_dict = evaluator.input_storage.load_from_archive('ckpt.zip', 
-                                                        filenames='model_ckpt.pt',
-                                                        filetypes='torch')
-        # Load the training history
-        # history = evaluator.input_storage.load_from_archive('ckpt.zip',
-        #                                                     filenames=['logger.pt'])
+                                                        filenames=['model_ckpt.pt'],
+                                                        filetypes=['torch'])
+        
+        # # Save the logger ckpt to the output storage
+        # evaluator.output_storage.save('logger_ckpt.pt', model_state_dict['logger_ckpt.pt'], filetype='torch')
+
 
         model=model_cls(model_config)
         model.load_model(state_dict=model_state_dict['model_ckpt.pt'])
+
+        
 
         evaluator.set_model(model)
         evaluator.run_eval()
@@ -290,14 +298,14 @@ if __name__ == "__main__":
                                            )
     
     # Get list of sweeps and runs
-    runs = {
-        'walker' : {
-            'dbc' : ['vu1p1ooc'],
-            'dbc_mnist': ['hdkhw10u'],
-            'spectral': ['5bt5v8zk'],
-            'spectral_mnist': ['lhl4z9ek']
-        }
-    }
+    # runs = {
+    #     config['experiment']['project'] : {
+    #         'dbc' : ['vu1p1ooc'],
+    #         'dbc_mnist': ['hdkhw10u'],
+    #         'spectral': ['5bt5v8zk'],
+    #         'spectral_mnist': ['lhl4z9ek']
+    #     }
+    # }
 
     # runs = {
     #     'cheetah' : {
@@ -308,12 +316,12 @@ if __name__ == "__main__":
     #     }
     # }
 
+    runs = config['experiment']['runs']
 
-    for project in runs.keys():
-        for sweep in tqdm(runs[project].keys()):
-            for run in runs[project][sweep]:
-                try:
-                    print(f"Running run {run} in sweep {sweep}")
-                    experiment.evaluate(run=run, sweep=sweep)
-                except FileNotFoundError:
-                    print(f'Could not find run {run} in sweep {sweep}')
+    for sweep in tqdm(runs.keys()):
+        for run in runs[sweep]:
+            try:
+                print(f"Running run {run} in sweep {sweep}")
+                experiment.evaluate(run=run, sweep=sweep)
+            except FileNotFoundError:
+                print(f'Could not find run {run} in sweep {sweep}')
