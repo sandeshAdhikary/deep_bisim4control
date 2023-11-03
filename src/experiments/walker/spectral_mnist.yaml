@@ -10,7 +10,7 @@ sweeper:
       encoder_ortho_loss_reg: {values: [1.0, 0.01, 0.001]}
 trainer:
   seed: &seed 1 
-  batch_size: 128
+  batch_size: 64
   eval_freq: &eval_freq 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1

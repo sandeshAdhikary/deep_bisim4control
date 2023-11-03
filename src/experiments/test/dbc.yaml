@@ -2,15 +2,15 @@ sweeper:
   method: grid
   sweeper_type: wandb
   goal: maximize
-  name: &sweep spectral_mnist
-  project: &project cheetah_new
-  load_runs_from_queue: true
+  name: &sweep dbc
+  project: &project test
+  load_runs_from_queue: false
   parameters:
-    model:
-      encoder_ortho_loss_reg: {values: [1.0, 0.01, 0.001]}
+    trainer:
+      seed: {values: [1, 2, 3]}
 trainer:
   seed: &seed 1 
-  batch_size: 64
+  batch_size: 128
   eval_freq: &eval_freq 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1
@@ -23,7 +23,7 @@ trainer:
   save_model_mode: None
   device: &device cuda
   terminal_display: rich
-  save_checkpoint_freq: 20_000 # every epoch
+  save_checkpoint_freq: 5_000 # every epoch
   async_eval: true
   log_length_train: 10
   log_length_eval: 10
@@ -32,15 +32,15 @@ trainer:
   log_checkpoint: true # save checkpoint to logger (e.g. wandb)
   env:
     seed: *seed
-    domain_name: cheetah
-    task_name: run
+    domain_name: walker
+    task_name: walk
     distraction_level: 0.2
     distractor: None
     distractor_img_shrink_factor: 1.3
     distractor_type: None
     episode_length: 1_000
     image_size: 88
-    img_source: mnist
+    img_source: null
     frame_stack: 3
     num_envs: 1
     render: false
@@ -100,7 +100,7 @@ model: &model_params
   decoder_update_freq: 1
   decoder_weight_lambda: 0.000001
   encoder_kernel_bandwidth: auto
-  encoder_mode: spectral
+  encoder_mode: dbc
   encoder_normalize_loss: true
   encoder_ortho_loss_reg: 0.0001
   encoder_output_dim: null

@@ -10,7 +10,7 @@ sweeper:
       seed: {values: [1, 2, 3]}
 trainer:
   seed: &seed 1 
-  batch_size: 128
+  batch_size: 64
   eval_freq: &eval_freq 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1

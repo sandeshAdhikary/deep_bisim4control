@@ -2,15 +2,15 @@ sweeper:
   method: grid
   sweeper_type: wandb
   goal: maximize
-  name: &sweep spectral_mnist
-  project: &project cheetah_new
-  load_runs_from_queue: true
+  name: &sweep spectral
+  project: &project test
+  load_runs_from_queue: false
   parameters:
     model:
       encoder_ortho_loss_reg: {values: [1.0, 0.01, 0.001]}
 trainer:
   seed: &seed 1 
-  batch_size: 64
+  batch_size: 128
   eval_freq: &eval_freq 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1
@@ -23,7 +23,7 @@ trainer:
   save_model_mode: None
   device: &device cuda
   terminal_display: rich
-  save_checkpoint_freq: 20_000 # every epoch
+  save_checkpoint_freq: 5_000 # every epoch
   async_eval: true
   log_length_train: 10
   log_length_eval: 10
