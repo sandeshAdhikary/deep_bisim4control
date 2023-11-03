@@ -9,10 +9,16 @@ experiment:
       host: $SSH_HOST
       username: $SSH_USERNAME
       password: $SSH_PASSWORD
+  runs:
+    dbc_mnist:
+      - u3fuhzim
+    spectral_mnist:
+      - 3ex8ns2d
+      - a19kix1p
 evaluator:
   project: *project
   sweep: null
-  num_envs: 3
+  num_envs: 5
   max_eval_jobs: 2
   async_eval: false
   model_name: ckpt.zip

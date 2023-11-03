@@ -23,7 +23,7 @@ trainer:
   save_model_mode: None
   device: &device cuda
   terminal_display: rich
-  save_checkpoint_freq: 20_000 # every epoch
+  save_checkpoint_freq: 3_000 # every epoch
   async_eval: true
   log_length_train: 10
   log_length_eval: 10

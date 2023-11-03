@@ -83,8 +83,11 @@ def get_runs(conn, project):
     return df
 
 def get_metrics(conn, runs, metric):
-    run_names = str(tuple(runs))
-    df = conn.query(f"SELECT * FROM {metric} where run_id in {run_names}")
+    st.write(len(runs))
+    if len(runs) > 1:
+        df = conn.query(f"SELECT * FROM {metric} WHERE run_id in {str(tuple(runs))}")
+    else:
+        df = conn.query(f"SELECT * FROM {metric} WHERE run_id='{runs.iloc[0]}'")
     return df
 
 def plot(avg_values, error_mode, metric):
@@ -178,12 +181,13 @@ def plot_agg(input_data, error_mode, metric):
 def plot_metric(conn, runs, metric, group_cols):
 
     metrics = get_metrics(conn, runs['run_id'], metric)
-
     if len(group_cols) == 0:
         avg_values = metrics
         avg_values.drop('eval_id', inplace=True, axis='columns')
         avg_values['value_high'] = avg_values['value'] + avg_values['value_std']
         avg_values['value_low'] = avg_values['value'] - avg_values['value_std']
+        max_value = avg_values['value_high'].max()
+        min_value = avg_values['value_low'].min()
         # No grouping: Error bands over evaluation seeds
         avg_values['group'] = avg_values.apply(lambda x: x['run_id'], axis=1)
         for eval_name in avg_values['eval_name'].unique():
@@ -196,11 +200,11 @@ def plot_metric(conn, runs, metric, group_cols):
             )
             chart = alt.Chart(data, title=chart_title).mark_line().encode(
                 x=alt.X('step:Q'),
-                y=alt.Y('value:Q', title=pretty_title(metric)),
+                y=alt.Y('value:Q', title=pretty_title(metric), scale=alt.Scale(domain=[min_value, max_value])),
                 color='group:N',
             )
             error_band = alt.Chart(data).mark_errorband(opacity=0.1).encode(
-                alt.Y('value_high', title=''),
+                alt.Y('value_high', title='', scale=alt.Scale(domain=[min_value, max_value])),
                 alt.Y2('value_low', title=''),
                 alt.X('step:Q'),
                 color=alt.Color('group:N', )
@@ -209,13 +213,14 @@ def plot_metric(conn, runs, metric, group_cols):
             st.altair_chart(chart, use_container_width=True)
 
     else:
+        aggregate_over_steps = st.radio('Aggregate over steps:', ['No', 'Yes'], horizontal=True)
+        error_mode = st.radio('Show error bands for mean over:', ['Group', 'Evaluation Seeds'], horizontal=True)
+
         run_groups = runs.copy()
         run_groups['group'] = runs.groupby(group_cols).ngroup()
         run_groups['group'] = run_groups.apply(lambda x: ' | '.join([f'{g} = {x[g]}' for g in group_cols]), axis=1)
         run_groups = run_groups[['run_id', 'group']]
         metrics['group'] = metrics.apply(lambda x: run_groups[run_groups['run_id']==x['run_id']]['group'].values[0], axis=1)
-        aggregate_over_steps = st.radio('Aggregate over steps:', ['No', 'Yes'], horizontal=True)
-        error_mode = st.radio('Show error bands for mean over:', ['Group', 'Evaluation Seeds'], horizontal=True)
         
         if aggregate_over_steps == 'Yes':
             metrics = metrics.drop('eval_id', axis='columns')
@@ -255,7 +260,7 @@ def get_eval_imgs(project, runs):
         }
         storage = SSHFileSystemStorage(ssh_storage_config)
         filenames = storage.get_filenames()
-        eval_files = [os.path.basename(filename).rstrip('\n') for filename in filenames if filename.startswith("eval") and filename.endswith(".pt\n")]
+        eval_files = [os.path.basename(filename).rstrip('\n') for filename in filenames if filename.startswith("eval") and filename.endswith(".mp4\n")]
         eval_imgs[f"{sweep}--{run}"] = {}
         for eval_file in eval_files:
             obses = storage.load(filename=eval_file, filetype='torch')['episode_obs']
@@ -339,8 +344,27 @@ if __name__ == '__main__':
         )
 
         runs = get_runs(conn, project=config['experiment']['project'])
-        runs = st.data_editor(runs)
+        # Create table to select runs
+        from st_aggrid import AgGrid, GridOptionsBuilder
+        # use the pre-selected rows when building the grid options
+        gb = GridOptionsBuilder.from_dataframe(runs)
+        gb.configure_selection('multiple', use_checkbox=True)
+        gb_grid_options = gb.build()
 
+        # render the grid and get the selected rows
+        grid_return = AgGrid(
+                runs,
+                gridOptions = gb_grid_options,
+                key = 'ID',
+                # data_return_mode = DataReturnMode.AS_INPUT,
+                # update_mode = GridUpdateMode.MODEL_CHANGED, # GridUpdateMode.SELECTION_CHANGED or GridUpdateMode.VALUE_CHANGED or 
+                height = 150,
+                theme = "streamlit"
+            )
+
+        selected_rows = [x["_selectedRowNodeInfo"]['nodeRowIndex'] for x in grid_return['selected_rows']]
+        # st.write(runs.iloc[, :])
+        # runs = runs.iloc[selected_rows]
         # Select columns to group by
         default_group_cols = []
         group_cols = st.multiselect(label='Group by', options=runs.columns, default=default_group_cols)
@@ -348,8 +372,8 @@ if __name__ == '__main__':
         metrics_tab, imgs_tab = st.tabs(["Metrics", "Videos"])
 
         with imgs_tab:
-            # pass
-            plot_eval_imgs(project, runs, group_cols)
+            pass
+            # plot_eval_imgs(project, runs, group_cols)
         with metrics_tab:
             metric = 'episode_rewards'
             plot_metric(conn, runs, metric, group_cols)

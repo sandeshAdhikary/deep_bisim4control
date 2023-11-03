@@ -17,6 +17,9 @@ import mysql.connector
 from trainer.storage import Storage
 from warnings import warn
 from tqdm import tqdm
+import imageio
+from einops import rearrange
+
 
 class BisimModel(Model):
 
@@ -103,6 +106,15 @@ class BisimRLEvaluator(RLEvaluator):
     
     def after_eval(self, info):
        
+        # Pull needed data from training ckpt
+        training_files = self.input_storage.load_from_archive('ckpt.zip',
+                                                              filenames=['trainer_ckpt.pt'],
+                                                              filetypes=['torch']
+                                                              )
+        
+        trainer_steps = training_files['trainer_ckpt.pt']['step']
+
+
         mysql_host = os.environ['SSH_HOST']
         mysql_user = os.environ['SSH_USERNAME']
         mysql_password = os.environ['MYSQL_PASSWORD']
@@ -125,6 +137,7 @@ class BisimRLEvaluator(RLEvaluator):
                            run_id VARCHAR(255),
                            sweep_id VARCHAR(255),
                            project_id VARCHAR(255),
+                           steps VARCHAR(255),
                            folder VARCHAR(255),
                            PRIMARY KEY (run_id, sweep_id)
             )""")
@@ -137,11 +150,33 @@ class BisimRLEvaluator(RLEvaluator):
         run_exists = cursor.fetchone()
         if run_exists is None:
             cursor.execute(f"""INSERT INTO runs \
-                        (run_id, sweep_id, project_id, folder) \
-                        VALUES ('{self.run}', '{self.sweep}', '{self.project}', '{self.output_storage.dir}') \
+                        (run_id, sweep_id, project_id, steps, folder) \
+                        VALUES ('{self.run}', '{self.sweep}', '{self.project}', '{trainer_steps}', '{self.output_storage.dir}') \
                         """)
 
         db_conn.commit()
+        
+        # Save videos from evaluation observations
+        filenames = self.output_storage.get_filenames()
+        eval_files = [os.path.basename(filename).rstrip('\n') for filename in filenames if filename.startswith("eval") and filename.endswith(".pt\n")]
+        for eval_file in eval_files:
+            obses = self.output_storage.load(filename=eval_file, filetype='torch')['episode_obs']
+            import tempfile
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                # Set up video parameters
+                fps = 24  # Frames per second
+                output_file = eval_file.split('.')[0] + '.mp4'
+                output_file = os.path.join(tmp_dir, output_file)
+
+                with imageio.get_writer(output_file, format='mp4', mode='I', fps=fps) as writer:
+                    for frame in obses:
+                        writer.append_data(rearrange(frame, 'c h w -> h w c'))
+
+                # Upload the file to output storage
+                self.output_storage.upload(files=[output_file])
+
+
+
         metrics = ['episode_rewards']
 
         for metric in metrics:
