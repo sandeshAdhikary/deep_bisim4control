@@ -35,7 +35,7 @@ class SpectralBisimAgent(BisimAgent):
             distances = self._distance(reward, pred_next_latent_mu1, pred_next_latent_sigma1)
             # Get kernel/weights matrix
             W = self._weights(distances, kernel_bandwidth=self.encoder_kernel_bandwidth)
-        loss, loss_dict = self._spectral_loss(W)
+        loss, loss_dict = self._spectral_loss(W, h)
         
         return loss, loss_dict    
         
@@ -69,11 +69,11 @@ class SpectralBisimAgent(BisimAgent):
             bisimilarity = r_dist + self.discount*transition_dist # shape (B,B)
         return bisimilarity
     
-    def _spectral_loss(self, W, fetures=None):
+    def _spectral_loss(self, W, h):
         # 
         loss_dict = {}
         # TODO: batch size is W.shape[0]?
-        # batch_size = W.shape[0]
+        batch_size = W.shape[0]
 
         if self.encoder_normalize_loss:
             D = torch.sum(W, dim=1)
