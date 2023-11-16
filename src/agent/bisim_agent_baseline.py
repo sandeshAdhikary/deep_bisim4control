@@ -246,7 +246,8 @@ class BisimAgent(object):
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        self.actor.log(L, step)
+        if L is not None:
+            self.actor.log(L, step)
 
         self.log_alpha_optimizer.zero_grad()
         alpha_loss = (self.alpha *
