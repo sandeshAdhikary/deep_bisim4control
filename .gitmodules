@@ -1,0 +1,3 @@
+[submodule "src/envs/distracting_control"]
+	path = src/envs/distracting_control
+	url = https://github.com/sahandrez/distracting_control.git

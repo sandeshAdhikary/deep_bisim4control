@@ -1,6 +1,6 @@
 project: &project cartpole_test
 sweeper:
-  name: &sweep spectral_kinetics_2
+  name: &sweep spectral_kinetics
   project: *project
   heartbeat_timeout: 30
   load_runs_from_queue: true
