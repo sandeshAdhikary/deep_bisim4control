@@ -1,6 +1,6 @@
 from gym import Wrapper
 from src.utils.utils import plot_to_array
-from PIL import Image, ImageOps
+from PIL import Image
 from einops import rearrange
 
 # Copyright (c) Facebook, Inc. and its affiliates.

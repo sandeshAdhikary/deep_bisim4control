@@ -1,0 +1,34 @@
+project: &project test_study
+sweeper:
+  name: &sweep dbc_mnist
+  project: *project
+  load_runs_from_queue: true
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}
+trainer:
+  project: *project
+  save_checkpoint_freq: 500
+  num_train_steps: &num_train_steps 3_000
+  eval_freq: &eval_freq 500
+  async_eval: false
+  env:
+    domain_name: &domain_name cartpole
+    task_name: &task_name swingup
+    img_source: mnist
+  storage:
+    input:
+      project: *project
+    output:
+      project: *project
+model:
+  encoder_mode: dbc
+evaluator:
+  project: *project
+  # sweep: *sweep
+  # run: 0mo5l7a6
+  domain_name: *domain_name
+  task_name: *task_name
+logger:
+  eval_freq: *eval_freq
+  num_train_steps: *num_train_steps

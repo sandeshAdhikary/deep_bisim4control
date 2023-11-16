@@ -1,1 +1,0 @@
-python train.py --replay_buffer_capacity 10_000 --init_steps 500 --batch_size 512 --num_eval_episodes 1 --num_train_steps 100_000 --save_tb --save_video --eval_freq 5 --domain_name gridworld --task_name circles --encoder_type pixel --encoder_mode spectral --reward_decoder_num_rews 3 --encoder_ortho_loss_reg 1e-4 --encoder_lr 5e-4 --decoder_lr 5e-4 --frame_stack 3
