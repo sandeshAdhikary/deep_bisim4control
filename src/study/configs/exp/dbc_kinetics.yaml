@@ -5,9 +5,6 @@ sweeper:
     trainer:
       seed: {values: [1, 2, 3]}
 trainer:
-  eval_freq: 200
-  eval_env:
-    episode_length: 20
   env:
     img_source: 'kinetics_videos'
 model:

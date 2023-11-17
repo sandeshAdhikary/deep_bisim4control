@@ -149,6 +149,7 @@ logger:
   log_freq: 100 # epochs
 sweeper:
   project: ${..project.project}
+  method: grid
   sweeper_type: wandb
   name: ???
   load_runs_from_queue: true
