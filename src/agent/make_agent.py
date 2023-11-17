@@ -54,6 +54,7 @@ def make_agent(obs_shape, action_shape, args, device):
             agent_kwargs.update({
                 'encoder_kernel_bandwidth': args.encoder_kernel_bandwidth,
                 'encoder_normalize_loss': args.encoder_normalize_loss,
+                'encoder_ortho_loss_reg': args.encoder_ortho_loss_reg,
             })
             agent = SpectralBisimAgent(**agent_kwargs)
     else:
