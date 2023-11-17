@@ -1,0 +1,195 @@
+study:
+  storage:
+      type: ssh
+      host: ${oc.env:SSH_HOST}
+      username: ${oc.env:SSH_USERNAME}
+      password: ${oc.env:SSH_PASSWORD}
+      root_dir: ${oc.env:SSH_DIR}/${..name}
+      overwrite: false
+  database:
+      type: mysql
+      name: ${..name} 
+      host: ${oc.env:MYSQL_HOST}
+      username: ${oc.env:MYSQL_USERNAME}
+      password: ${oc.env:MYSQL_PASSWORD}
+  metrics: 
+    episode_rewards:
+      name: episode_rewards
+      type: scalar
+      temporal: true
+      table_spec: null
+    avg_episode_rewards:
+      name: avg_episode_rewards
+      type: scalar
+      temporal: false
+      table_spec: null
+    observation_videos:
+      name: observation_videos
+      type: object
+      temporal: false
+      table_spec: null
+trainer:
+  project: ${..project.project}
+  module_path: src.study.trainers.BisimRLTrainer
+  make_env_module_path: src.envs.setup_env.make_env
+  seed: 123
+  batch_size: 128
+  eval_freq: 10_000 # every n epochs
+  init_steps: 1_000
+  num_eval_episodes: 1
+  num_train_steps: 1_000_000
+  port: 2000
+  device: cuda
+  terminal_display: rich
+  save_checkpoint_freq: 20_000 # every epoch
+  async_eval: true
+  log_length_train: 3
+  log_length_eval: 3
+  load_from_checkpoint: true
+  load_checkpoint_type: zip
+  log_checkpoint: false # save checkpoint to logger (e.g. wandb)
+  env:
+    seed: ${...trainer.seed}
+    domain_name: ${...project.env.domain_name}
+    task_name: ${...project.env.task_name}
+    img_source: ${...project.env.img_source}
+    episode_length: 1_000
+    image_size: 88
+    frame_stack: 3
+    num_envs: 1
+    render: false
+    total_frames: 1000
+    encoder_type: pixel
+    action_repeat: 1
+  eval_env:
+    num_envs: 5
+    episode_length: 1_000
+    seed: ${...trainer.seed}
+    domain_name: ${...project.env.domain_name}
+    task_name: ${...project.env.task_name}
+    img_source: ${...project.env.img_source}
+    image_size: 88
+    frame_stack: 3
+    render: false
+    total_frames: 1000
+    encoder_type: pixel
+    action_repeat: 1
+  replay_buffer:
+    replay_buffer_capacity: 100_000 # paper used 1M, but we don't have memory
+  storage:
+    input:
+      type: ssh
+      root_dir: ${....study.storage.root_dir}
+      sub_dir: train
+      host: ${oc.env:SSH_HOST}
+      username: ${oc.env:SSH_USERNAME}
+      password: ${oc.env:SSH_PASSWORD}
+    output:
+      type: ssh
+      root_dir: ${....study.storage.root_dir}
+      sub_dir: train
+      host: ${oc.env:SSH_HOST}
+      username: ${oc.env:SSH_USERNAME}
+      password: ${oc.env:SSH_PASSWORD}
+model:
+  project: ${..project.project}
+  module_path: src.study.models.BisimModel
+  make_agent_module_path: src.agent.make_agent.make_agent
+  device: ${..trainer.device}
+  # Defaults from DBC paper
+  discount: 0.99
+  critic_lr: 0.00001
+  critic_target_update_freq: 2
+  critic_tau: 0.005
+  actor_lr: 0.00001
+  actor_update_freq: 2
+  actor_log_std_max: 2
+  actor_log_std_min: -5
+  encoder_lr: 0.00001
+  decoder_lr: 0.00001
+  init_temperature: 0.1
+  encoder_feature_dim: 50
+  transition_model_type: 'probabilistic'
+  # Other defaults
+  agent: bisim
+  actor_beta: 0.9
+  alpha_beta: 0.9
+  alpha_lr: 0.0001
+  bisim_coef: 0.5
+  critic_beta: 0.9
+  decoder_type: pixel
+  decoder_update_freq: 1
+  decoder_weight_lambda: 0.0000001
+  encoder_kernel_bandwidth: auto
+  encoder_mode: null
+  encoder_normalize_loss: true
+  encoder_ortho_loss_reg: 0.0001
+  encoder_output_dim: null
+  encoder_stride: 1
+  encoder_tau: 0.005
+  encoder_type: 'pixel'
+  hidden_dim: 256
+  k: 3
+  load_encoder: null
+  num_filters: 32
+  num_layers: 4
+  decode_rewards_from_next_latent: true
+logger:
+  project: ${..project.project}
+  module_path: trainer.logger.Logger
+  sw: wandb
+  dir: ${oc.env:LOG_DIR}
+  img_downscale_factor: 1
+  minimal: false
+  video_log_freq: null
+  tracked_params: ${model}
+  num_train_steps: ${..trainer.num_train_steps}
+  eval_freq: ${..trainer.eval_freq}
+  cleanup: true # delete logdir after training
+  log_freq: 100 # epochs
+sweeper:
+  project: ${..project.project}
+  sweeper_type: wandb
+  name: ???
+  load_runs_from_queue: true
+  heartbeat_timeout: 30
+  parameters: ???
+evaluator:
+  project: ${..project.project}
+  num_envs: 5
+  max_eval_jobs: 2
+  async_eval: false
+  model_name: ckpt.zip # use best_ckpt.zip or ckpt.zip
+  saved_model_type: zip
+  save_output: true
+  display_progress: true
+  # storage: 
+  #   input:
+  #     type: ssh
+  #     host: ${oc.env:SSH_HOST}
+  #     username: ${oc.env:SSH_USERNAME}
+  #     password: ${oc.env:SSH_PASSWORD}
+  #     root_dir: ${oc.env:SSH_DIR}/${....name}
+  #     sub_dir: train # Load model from /train
+  #   output:
+  #     type: ssh
+  #     host: ${oc.env:SSH_HOST}
+  #     username: ${oc.env:SSH_USERNAME}
+  #     password: ${oc.env:SSH_PASSWORD}
+  #     root_dir: ${oc.env:SSH_DIR}/${....name}
+  #     sub_dir: eval # Save outputs to /eval
+  #     overwrite: true
+  envs: ???
+#     kinetics_env:
+#       domain_name: ${...project.env.domain_name}
+#       task_name: ${...project.env.task_name}
+#       seed: ${...trainer.seed}
+#       episode_length: &eval_episode_length 1_000
+#       image_size: 88
+#       img_source: kinetics_videos
+#       frame_stack: 3
+#       num_envs: 5
+#       render: false
+#       total_frames: 1000
+#       encoder_type: pixel
+#       action_repeat: 1

@@ -1,0 +1,10 @@
+distracted_cheetah:
+  name: distracted_cheetah
+  desc: |
+    Distracted Cheetah-Run from the distracted_control env.
+    The img_source sets the difficulty [`easy`, `medium`, `hard`]
+    By default `img_source=easy`.
+  env:
+    name: distracted_cheetah
+    task_name: run
+    img_source: easy

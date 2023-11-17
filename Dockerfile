@@ -1,10 +1,12 @@
 FROM nvcr.io/nvidia/cuda:11.8.0-devel-ubuntu18.04
 RUN 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
 # Install system dependencies
 RUN apt-get update \
     && apt-get install -y \
     vim \
     # Rendering dependencies
+    ffmpeg \
     libglfw3 \
     libglew2.0 \
     libgl1-mesa-glx \
@@ -20,8 +22,8 @@ RUN apt-get update \
     xpra
 
 # Set up working directory
-RUN mkdir -p $HOME/project 
-WORKDIR $HOME/project
+RUN mkdir -p /project 
+WORKDIR /project
 COPY conda_env.yaml .
 
 # Install Miniconda
@@ -39,3 +41,8 @@ RUN pip install -e .
 
 # Activate the conda env
 RUN echo "source activate dbc" > ~/.bashrc
+
+# Install distracting_control as a package
+# WORKDIR /project/src/envs/distracting_control/
+# RUN pip install -e .
+# WORKDIR /project

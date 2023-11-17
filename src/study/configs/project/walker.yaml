@@ -1,0 +1,8 @@
+walker:
+  name: walker
+  desc: |
+    Walker walk. By default no img_source (distractor specified)
+  env:
+    domain_name: walker
+    task_name: walk
+    img_source: null

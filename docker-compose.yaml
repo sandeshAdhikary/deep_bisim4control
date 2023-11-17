@@ -19,3 +19,4 @@ services:
       - ./scripts:/project/scripts
       - ./workdir:/project/workdir
       - ./logdir:/project/logdir
+      - ./container_setup.sh:/project/container_setup.sh

@@ -1,0 +1,10 @@
+distracted_walker:
+  name: distracted_walker
+  desc: |
+    Distracted Walker-walk from the distracted_control env.
+    The img_source sets the difficulty [`easy`, `medium`, `hard`]
+    By default `img_source=easy`.
+  env:
+    name: distracted_walker
+    task_name: walk
+    img_source: easy

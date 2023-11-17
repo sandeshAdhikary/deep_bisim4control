@@ -12,6 +12,13 @@ dependencies:
   - mysqlclient
   - pip
   - pip:
+    - git+https://github.com/scikit-video/scikit-video.git # pip's skvideo is not compatible with new numpy
+    - altair
+    - omegaconf
+    - pandas
+    - envyaml
+    - paramiko
+    - mysql-connector-python
     - rich
     - git+https://github.com/sandeshAdhikary/trainer.git
     - lightning

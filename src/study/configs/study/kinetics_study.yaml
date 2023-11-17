@@ -1,0 +1,7 @@
+name: kinetics_study
+desc: |
+  Testing the new experiment format. Major changes:
+  1) Using natural video backgrounds from the kinetics dataset to match original dbc
+  2) Using pred_from_next_latent
+  3) Consolidated code for envs
+  4) Saving best model in addition to last model

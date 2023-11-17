@@ -1,23 +1,41 @@
 from trainer.study import Study
 from omegaconf import OmegaConf
 import argparse
+from omegaconf import DictConfig, OmegaConf
+import hydra
+from hydra.utils import instantiate
+
+@hydra.main(version_base=None, config_path="configs", config_name='default_config')
+def main(cfg: DictConfig) -> (DictConfig, DictConfig):
+
+    # Resolve the config
+    cfg = DictConfig(OmegaConf.to_container(cfg, resolve=True))
+
+    # Get the composed config
+    study_config = cfg
+
+    # Experiment overrides
+    exp_config = cfg['exp']
+    study_config.__delattr__('exp') 
+
+    # Define study
+    study = Study(study_config)
+
+    # Get the experiment mode
+    exp_mode = exp_config['exp_mode']
+    exp_config.__delattr__('exp_mode')
+
+    # Run experiment
+    if exp_mode == 'train': 
+        study.train(exp_config)
+    elif exp_mode == 'sweep':
+        study.sweep(exp_config)
+    elif exp_mode == 'evaluate':
+        study.evaluate(exp_config)
+    else:
+        raise ValueError(f'exp_mode {exp_mode} not recognized')
+    
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--study_config', type=str, default=None)
-    parser.add_argument('--run_config', type=str, default=None)
-    args = parser.parse_args()
-
-    # study_config_path = '/project/src/study/configs/study.yaml'
-    # run_config_path = '/project/src/study/configs/train_sample.yaml'
-    # study_config_path = 'src/study/configs/cartpole_study_default.yaml'
-    # run_config_path = 'src/study/configs/cartpole_study_dbc_kinetics.yaml'
-
-    study_cfg = OmegaConf.load(args.study_config)
-    run_cfg = OmegaConf.load(args.run_config)
-    
-    study = Study(study_cfg)
-
-    # study.sweep(run_cfg)
-    study.train(run_cfg)
-    # study.evaluate(run_cfg)
+    main()

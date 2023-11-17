@@ -1,0 +1,11 @@
+exp_mode: sweep
+sweeper:
+  name: spectral_kinetics
+  parameters:
+    model:
+      encoder_ortho_loss_reg: {values: [0.0001, 0.001, 0.1]}
+trainer:
+  env:
+    img_source: null
+model:
+  encoder_mode: spectral

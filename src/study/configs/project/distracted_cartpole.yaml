@@ -1,0 +1,10 @@
+distracted_cartpole:
+  name: distracted_cartpole
+  desc: |
+    Distracted Cartpole from the distracted_control env.
+    The img_source sets the difficulty [`easy`, `medium`, `hard`]
+    By default `img_source=easy`.
+  env:
+    name: distracted_cartpole
+    task_name: swingup
+    img_source: easy
