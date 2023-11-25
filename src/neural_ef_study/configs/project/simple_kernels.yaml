@@ -1,0 +1,17 @@
+project: simple_kernels
+desc: |
+  Testing the NeuralEF model on simple RBF kernel.
+domain: 'simple_kernels'
+optimizer: 
+  name: Adam
+  optimizer_kwargs:
+    lr: 0.001
+scheduler:
+  name: CosineAnnealingLR
+  scheduler_kwargs: {
+    T_max: 2000
+    }
+trainer_module_path: src.neural_ef_study.modules_simple_kernels.NeuralEFTrainer
+evaluator_module_path: src.neural_ef_study.modules_simple_kernels.NeuralEFEvaluator
+model_module_path: src.neural_ef_study.modules_simple_kernels.NeuralEFModel
+model_hidden_dim: 32
