@@ -1,10 +1,11 @@
 study:
+  desc: ${..desc}
   storage:
       type: ssh
       host: ${oc.env:SSH_HOST}
       username: ${oc.env:SSH_USERNAME}
       password: ${oc.env:SSH_PASSWORD}
-      root_dir: ${oc.env:SSH_DIR}/${..name}
+      root_dir: &ssh_storage_dir ${oc.env:SSH_DIR}/${..name}
       overwrite: false
   database:
       type: mysql
@@ -42,7 +43,7 @@ trainer:
   device: cuda
   terminal_display: rich
   save_checkpoint_freq: 20_000 # every epoch
-  async_eval: true
+  async_eval: false
   log_length_train: 3
   log_length_eval: 3
   load_from_checkpoint: true
@@ -157,6 +158,7 @@ sweeper:
   parameters: ???
 evaluator:
   project: ${..project.project}
+  use_best_ckpt: true
   num_envs: 5
   max_eval_jobs: 2
   async_eval: false
@@ -164,33 +166,33 @@ evaluator:
   saved_model_type: zip
   save_output: true
   display_progress: true
-  # storage: 
-  #   input:
-  #     type: ssh
-  #     host: ${oc.env:SSH_HOST}
-  #     username: ${oc.env:SSH_USERNAME}
-  #     password: ${oc.env:SSH_PASSWORD}
-  #     root_dir: ${oc.env:SSH_DIR}/${....name}
-  #     sub_dir: train # Load model from /train
-  #   output:
-  #     type: ssh
-  #     host: ${oc.env:SSH_HOST}
-  #     username: ${oc.env:SSH_USERNAME}
-  #     password: ${oc.env:SSH_PASSWORD}
-  #     root_dir: ${oc.env:SSH_DIR}/${....name}
-  #     sub_dir: eval # Save outputs to /eval
-  #     overwrite: true
-  envs: ???
-#     kinetics_env:
-#       domain_name: ${...project.env.domain_name}
-#       task_name: ${...project.env.task_name}
-#       seed: ${...trainer.seed}
-#       episode_length: &eval_episode_length 1_000
-#       image_size: 88
-#       img_source: kinetics_videos
-#       frame_stack: 3
-#       num_envs: 5
-#       render: false
-#       total_frames: 1000
-#       encoder_type: pixel
-#       action_repeat: 1
+  storage: 
+    input:
+      type: ssh
+      host: ${oc.env:SSH_HOST}
+      username: ${oc.env:SSH_USERNAME}
+      password: ${oc.env:SSH_PASSWORD}
+      root_dir: ${oc.env:SSH_DIR}/${study.name}
+      sub_dir: train # Load model from /train
+    output:
+      type: ssh
+      host: ${oc.env:SSH_HOST}
+      username: ${oc.env:SSH_USERNAME}
+      password: ${oc.env:SSH_PASSWORD}
+      root_dir: ${oc.env:SSH_DIR}/${study.name}
+      sub_dir: eval # Save outputs to /eval
+      overwrite: true
+  envs:
+    kinetics_env:
+      domain_name: ${project.env.domain_name}
+      task_name: ${project.env.task_name}
+      seed: ${trainer.seed}
+      episode_length: &eval_episode_length 1_000
+      image_size: 88
+      img_source: kinetics_videos
+      frame_stack: 3
+      num_envs: 5
+      render: false
+      total_frames: 1000
+      encoder_type: pixel
+      action_repeat: 1
