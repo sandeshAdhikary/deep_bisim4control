@@ -1,0 +1,18 @@
+name: Spectral
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: spectral
+    critic_lr: 0.00001
+    actor_lr: 0.00001
+    encoder_lr: 0.00001
+  trainer:
+    num_train_steps: 300_000
+sweeper:
+  name: spectral_new
+  num_runs: 10
+  parameters:
+    model:
+      critic_lr: {values: [0.00001, 0.000001]}
+      actor_lr: {values: [0.00001, 0.000001]}
+      encoder_lr: {values: [0.00001, 0.000001]}

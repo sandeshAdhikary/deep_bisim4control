@@ -1,0 +1,16 @@
+name: DBC_ResidualActor
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: dbc
+    residual_actor: True
+  trainer:
+    num_train_steps: 300_000
+    eval_env:
+      episode_length: 100
+sweeper:
+  name: dbc_residualActor
+  num_runs: 3
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}

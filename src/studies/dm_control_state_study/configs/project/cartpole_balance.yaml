@@ -1,0 +1,9 @@
+name: cartpole_balance
+desc: |
+  Carttpole balance.
+overrides:
+  trainer:
+    env:
+      domain_name: cartpole
+      task_name: balance
+      img_source: null

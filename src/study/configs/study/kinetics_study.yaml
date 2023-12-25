@@ -5,3 +5,9 @@ desc: |
   2) Using pred_from_next_latent
   3) Consolidated code for envs
   4) Saving best model in addition to last model
+  ## Next Steps
+  1) Train `bisim` study with:
+    - Lower learning rate. The one matching the paper
+    - Higher batch size. The one matching the paper
+    - Repeat on the driving environment. The one matching the paper.
+    - Reward from next state. The one matching the paper.

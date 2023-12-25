@@ -1,0 +1,11 @@
+name: image
+desc: |
+ Evaluating on image data
+domain: image
+model_type: SingleCNNEigenFunctions
+num_epochs: 3_000
+overrides:
+  model:
+    optimizer:
+      optimizer_kwargs:
+        lr: 0.0001

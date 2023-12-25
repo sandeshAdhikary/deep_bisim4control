@@ -120,6 +120,78 @@ class Actor(nn.Module):
         L.log_param('train_actor/fc3', self.trunk[4], step)
 
 
+class ActorResidual(nn.Module):
+    """
+    Adds an extra residual encoder in addition to the standard encoder
+    """
+    def __init__(
+        self, obs_shape, action_shape, hidden_dim, encoder_type,
+        encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride, 
+        encoder_output_dim=None, residual_prop=0.1
+    ):
+        super().__init__()
+
+        encoder_output_dim = encoder_output_dim or encoder_feature_dim
+
+        self.encoder = make_encoder(
+            encoder_type, obs_shape, encoder_feature_dim, num_layers,
+            num_filters, stride, output_dim=encoder_output_dim
+        )
+        
+        self.register_buffer('residual_prop', torch.tensor(residual_prop))
+        self.residual_encoder = make_encoder(
+            encoder_type, obs_shape, encoder_feature_dim, num_layers,
+            num_filters, stride, output_dim=encoder_output_dim
+        )
+
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
+
+        self.trunk = nn.Sequential(
+            nn.Linear(encoder_output_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, 2 * action_shape[0])
+        )
+
+        self.outputs = dict()
+        self.apply(weight_init)
+
+
+    def forward(
+        self, obs, compute_pi=True, compute_log_pi=True, detach_encoder=False
+    ):
+        embedding = self.encoder(obs, detach=detach_encoder)
+        embedding = (1. - self.residual_prop)*embedding + self.residual_prop*self.residual_encoder(obs, detach=detach_encoder)
+
+        mu, log_std = self.trunk(embedding).chunk(2, dim=-1)
+
+        # constrain log_std inside [log_std_min, log_std_max]
+        log_std = torch.tanh(log_std)
+        log_std = self.log_std_min + 0.5 * (
+            self.log_std_max - self.log_std_min
+        ) * (log_std + 1)
+
+        self.outputs['mu'] = mu
+        self.outputs['std'] = log_std.exp()
+
+        if compute_pi:
+            std = log_std.exp()
+            noise = torch.randn_like(mu)
+            pi = mu + noise * std
+        else:
+            pi = None
+            entropy = None
+
+        if compute_log_pi:
+            log_pi = gaussian_logprob(noise, log_std)
+        else:
+            log_pi = None
+
+        mu, pi, log_pi = squash(mu, pi, log_pi)
+
+        return mu, pi, log_pi, log_std
+
+
 class QFunction(nn.Module):
     """MLP for q-function."""
     def __init__(self, obs_dim, action_dim, hidden_dim):
