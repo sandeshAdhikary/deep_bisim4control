@@ -97,38 +97,37 @@ class SpectralBisimAgent(BisimAgent):
         return loss, loss_dict
 
 
-class NeuralEigenBisimAgent(SpectralBisimAgent):
-    #TODO: Need L2-batch normalization to enforce normalization
+class NeuralEFBisimAgent(SpectralBisimAgent):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def _spectral_loss(self, W, features):
-         
+        """
+        W : kernel matrix (weights matrix)
+        """
         loss_dict = {}
 
         batch_size = W.shape[0]
 
-        # Build R matrix
-        R = features @ W @ features.T
-        R /= batch_size**2
+        psis_x = features
+        kernel = W
 
-        # Build R-hat matrix
-        with torch.no_grad():
-            R_hat = features @ W @ features.T
-        
-        # First term
-        dist_loss = torch.trace(R)
-        
+        K_psis = kernel @ psis_x
+        psis_K_psis = psis_x.T @ K_psis
+        psisSG_K_psis = psis_x.T.clone().detach() @ K_psis
 
-        # TODO: Don't include diagonal in triu
-        ortho_loss = torch.triu(R_hat**2)
-        ortho_loss = ortho_loss.sum(dim=1) # sum over the columns
-        ortho_loss = ortho_loss.sum()
-        
-        # Comine the losses
-        loss = dist_loss - self.beta*ortho_loss
-        loss = -loss # Since we will be minimizing
+        # The diagonal term
+        loss_ii = torch.diag(psis_K_psis)
+        # The off diagonal terms
+        loss_ij = torch.triu(psisSG_K_psis, diagonal=1)**2
+        loss_ij /= torch.diagonal(psis_K_psis.detach()).view(-1,1)
+        loss_ij = loss_ij.sum(dim=0)
 
-        loss_dict['dist_loss'] = -dist_loss.item() # negative since we're minimizing
-        loss_dict['ortho_loss'] = ortho_loss.item() # positive since we're minimizing
-        loss_dict['encoder_loss'] = loss.item()
+        loss = -(loss_ii - loss_ij).sum() / batch_size**2
+
+        loss_dict['dist_loss'] = -loss_ii.detach().sum().item()/batch_size**2 # negative since we're minimizing
+        loss_dict['ortho_loss'] =  loss_ij.detach().sum().item()/batch_size**2 # positive since we're minimizing
+        loss_dict['encoder_loss'] = loss.detach().item()
 
         return loss, loss_dict

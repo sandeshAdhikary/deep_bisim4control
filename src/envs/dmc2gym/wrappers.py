@@ -99,7 +99,7 @@ class DMCWrapper(core.Env):
             )
         else:
             self._observation_space = _spec_to_box(
-                self._env.observation_spec().values(), dtype=np.float32
+                self._env.observation_spec().values()
             )
 
         self._internal_state_space = spaces.Box(

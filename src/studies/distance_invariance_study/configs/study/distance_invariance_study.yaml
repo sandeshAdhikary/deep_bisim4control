@@ -1,0 +1,4 @@
+name: DistanceInvarianceStudy
+desc: |
+  Evaluating the effectiveness of various representation learning algorithms in 
+  enforcing distance-based-invariance.

@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.models.sac_ae import  Actor, Critic
+from src.models.sac_ae import  Actor, Critic, ActorResidual
 from src.models.transition_model import make_transition_model
 import src.agent.utils as agent_utils
 
@@ -49,7 +49,8 @@ class BisimAgent(object):
         num_layers=4,
         num_filters=32,
         bisim_coef=0.5,
-        decode_rewards_from_next_latent=True
+        decode_rewards_from_next_latent=True,
+        residual_actor=False,
     ):
         self.device = device
         self.discount = discount
@@ -62,12 +63,21 @@ class BisimAgent(object):
         self.transition_model_type = transition_model_type
         self.bisim_coef = bisim_coef
         self.decode_rewards_from_next_latent = decode_rewards_from_next_latent
+        self.residual_actor = residual_actor
 
-        self.actor = Actor(
-            obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-            num_layers, num_filters, encoder_stride
-        ).to(device)
+        if residual_actor:
+            self.actor = ActorResidual(
+                obs_shape, action_shape, hidden_dim, encoder_type,
+                encoder_feature_dim, actor_log_std_min, actor_log_std_max,
+                num_layers, num_filters, encoder_stride
+            ).to(device)
+        else:
+            self.actor = Actor(
+                obs_shape, action_shape, hidden_dim, encoder_type,
+                encoder_feature_dim, actor_log_std_min, actor_log_std_max,
+                num_layers, num_filters, encoder_stride
+            ).to(device)
+
 
         self.critic = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
@@ -104,13 +114,26 @@ class BisimAgent(object):
             self.actor.parameters(), lr=actor_lr, betas=(actor_beta, 0.999)
         )
 
+        # scheduler_kwargs:
+        scheduler_step_size = 1000
+        scheduler_gamma = 0.99
+
+        self.actor_scheduler = torch.optim.lr_scheduler.StepLR(self.actor_optimizer, 
+                                                               scheduler_step_size, gamma=scheduler_gamma)
+
         self.critic_optimizer = torch.optim.Adam(
             self.critic.parameters(), lr=critic_lr, betas=(critic_beta, 0.999)
         )
 
+        self.critic_scheduler = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, 
+                                                                scheduler_step_size, gamma=scheduler_gamma)
+
         self.log_alpha_optimizer = torch.optim.Adam(
             [self.log_alpha], lr=alpha_lr, betas=(alpha_beta, 0.999)
         )
+
+        self.log_alpha_scheduler = torch.optim.lr_scheduler.StepLR(self.log_alpha_optimizer, 
+                                                                   scheduler_step_size, gamma=scheduler_gamma)
 
         # optimizer for decoder
         self.decoder_optimizer = torch.optim.Adam(
@@ -119,10 +142,16 @@ class BisimAgent(object):
             weight_decay=decoder_weight_lambda
         )
 
+        self.decoder_scheduler = torch.optim.lr_scheduler.StepLR(self.decoder_optimizer, 
+                                                                 scheduler_step_size, gamma=scheduler_gamma)
+
         # optimizer for critic encoder for reconstruction loss
         self.encoder_optimizer = torch.optim.Adam(
             self.critic.encoder.parameters(), lr=encoder_lr
         )
+
+        self.encoder_scheduler = torch.optim.lr_scheduler.StepLR(self.encoder_optimizer, 
+                                                                 scheduler_step_size, gamma=scheduler_gamma)
 
         self.train()
         self.critic_target.train()
@@ -245,7 +274,6 @@ class BisimAgent(object):
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
-
         if L is not None:
             self.actor.log(L, step)
 
@@ -400,6 +428,18 @@ class BisimAgent(object):
                 self.encoder_tau
             )
 
+        # Update schedulers
+        if self.critic_scheduler is not None:
+            self.critic_scheduler.step()
+        if self.actor_scheduler is not None:
+            self.actor_scheduler.step()
+        if self.log_alpha_scheduler is not None:
+            self.log_alpha_scheduler.step()
+        if self.decoder_scheduler is not None:
+            self.decoder_scheduler.step()
+        if self.encoder_scheduler is not None:
+            self.encoder_scheduler.step()
+
         return {
             'critic': critic_update_dict,
             'transition': transition_update_dict,
@@ -431,7 +471,7 @@ class BisimAgent(object):
         torch.save(self.state_dict(save_optimizers=save_optimizers),
                     f'{model_dir}/{filename}')
 
-    def state_dict(self, save_optimizers=True):
+    def state_dict(self, include_optimizers=True):
         """
         state dict consists of all constructor params needed to recreate model
         """
@@ -444,7 +484,7 @@ class BisimAgent(object):
                             'target_entropy': self.target_entropy,
                             }
 
-        if save_optimizers:
+        if include_optimizers:
             constructor_params.update({
                 'actor_optimizer': self.actor_optimizer.state_dict(),
                 'critic_optimizer': self.critic_optimizer.state_dict(),
@@ -499,3 +539,12 @@ class BisimAgent(object):
                 setattr(self, name, value)    
 
 
+    def to(self, device):
+        self.device = device
+        self.actor = self.actor.to(device=device)
+        self.critic = self.critic.to(device=device)
+        self.critic_target = self.critic_target.to(device=device)
+        self.transition_model = self.transition_model.to(device=device)
+        self.reward_decoder = self.reward_decoder.to(device=device)
+        self.log_alpha = self.log_alpha.to(device=device)
+        return self

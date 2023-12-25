@@ -11,7 +11,5 @@ scheduler:
   scheduler_kwargs: {
     T_max: 2000
     }
-trainer_module_path: src.neural_ef_study.modules_simple_kernels.NeuralEFTrainer
-evaluator_module_path: src.neural_ef_study.modules_simple_kernels.NeuralEFEvaluator
-model_module_path: src.neural_ef_study.modules_simple_kernels.NeuralEFModel
+model_module_path: src.neural_ef_study.models.DistanceMatchModel
 model_hidden_dim: 32

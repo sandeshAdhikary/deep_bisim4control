@@ -1,7 +1,7 @@
 import numpy as np
 from types import SimpleNamespace
 from src.agent.bisim_agent_baseline import BisimAgent
-from src.agent.bisim_agent_spectral import SpectralBisimAgent
+from src.agent.bisim_agent_spectral import SpectralBisimAgent, NeuralEFBisimAgent
 
 def make_agent(obs_shape, action_shape, args, device):
     
@@ -43,8 +43,8 @@ def make_agent(obs_shape, action_shape, args, device):
             'num_layers': args.num_layers,
             'num_filters': args.num_filters,
             'bisim_coef': args.bisim_coef,
-            'decode_rewards_from_next_latent': args.decode_rewards_from_next_latent
-
+            'decode_rewards_from_next_latent': args.decode_rewards_from_next_latent,
+            'residual_actor': args.residual_actor,
         }
         if args.encoder_mode == 'dbc':
             # Baseline Bisim Agent
@@ -57,6 +57,8 @@ def make_agent(obs_shape, action_shape, args, device):
                 'encoder_ortho_loss_reg': args.encoder_ortho_loss_reg,
             })
             agent = SpectralBisimAgent(**agent_kwargs)
+        elif args.encoder_mode == 'neural_ef':
+            agent = NeuralEFBisimAgent(**agent_kwargs)
     else:
         raise NotImplementedError(f"Agent {args.agent} not implemented")
     return agent
