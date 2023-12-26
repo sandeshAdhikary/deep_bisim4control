@@ -12,9 +12,7 @@ overrides:
       encoder_type: pixel_l2
 sweeper:
   name: spectral
-  num_runs: 10
+  num_runs: 3
   parameters:
-    model:
-      critic_lr: {values: [0.00001, 0.000001]}
-      actor_lr: {values: [0.00001, 0.000001]}
-      encoder_lr: {values: [0.00001, 0.000001]}
+    trainer:
+      seed: {values: [1, 2, 3]}

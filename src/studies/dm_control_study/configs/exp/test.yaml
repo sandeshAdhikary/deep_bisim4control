@@ -14,7 +14,7 @@ overrides:
     log_epoch_freq: 100
 sweeper:
   name: test
-  num_runs: 10
+  num_runs: 3
   parameters:
     trainer:
       seed: {values: [1, 2, 3]}

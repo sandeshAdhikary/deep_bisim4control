@@ -4,10 +4,6 @@ overrides:
   model:
     encoder_mode: dbc
     residual_actor: True
-  trainer:
-    num_train_steps: 300_000
-    eval_env:
-      episode_length: 100
 sweeper:
   name: dbc_residualActor
   num_runs: 3

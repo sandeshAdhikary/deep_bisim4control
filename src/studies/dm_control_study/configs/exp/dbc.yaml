@@ -3,8 +3,6 @@ exp_mode: ???
 overrides:
   model:
     encoder_mode: dbc
-  trainer:
-    num_train_steps: 300_000
 sweeper:
   name: dbc
   num_runs: 3
