@@ -51,6 +51,7 @@ class BisimAgent(object):
         bisim_coef=0.5,
         decode_rewards_from_next_latent=True,
         residual_actor=False,
+        use_schedulers=True
     ):
         self.device = device
         self.discount = discount
@@ -114,26 +115,13 @@ class BisimAgent(object):
             self.actor.parameters(), lr=actor_lr, betas=(actor_beta, 0.999)
         )
 
-        # scheduler_kwargs:
-        scheduler_step_size = 1000
-        scheduler_gamma = 0.99
-
-        self.actor_scheduler = torch.optim.lr_scheduler.StepLR(self.actor_optimizer, 
-                                                               scheduler_step_size, gamma=scheduler_gamma)
-
         self.critic_optimizer = torch.optim.Adam(
             self.critic.parameters(), lr=critic_lr, betas=(critic_beta, 0.999)
         )
 
-        self.critic_scheduler = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, 
-                                                                scheduler_step_size, gamma=scheduler_gamma)
-
         self.log_alpha_optimizer = torch.optim.Adam(
             [self.log_alpha], lr=alpha_lr, betas=(alpha_beta, 0.999)
         )
-
-        self.log_alpha_scheduler = torch.optim.lr_scheduler.StepLR(self.log_alpha_optimizer, 
-                                                                   scheduler_step_size, gamma=scheduler_gamma)
 
         # optimizer for decoder
         self.decoder_optimizer = torch.optim.Adam(
@@ -142,16 +130,30 @@ class BisimAgent(object):
             weight_decay=decoder_weight_lambda
         )
 
-        self.decoder_scheduler = torch.optim.lr_scheduler.StepLR(self.decoder_optimizer, 
-                                                                 scheduler_step_size, gamma=scheduler_gamma)
-
         # optimizer for critic encoder for reconstruction loss
         self.encoder_optimizer = torch.optim.Adam(
             self.critic.encoder.parameters(), lr=encoder_lr
         )
 
+        # scheduler_kwargs:
+        scheduler_step_size = 1000
+        scheduler_gamma = 0.99
+
+        self.actor_scheduler = torch.optim.lr_scheduler.StepLR(self.actor_optimizer, 
+                                                            scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+        
+        self.critic_scheduler = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, 
+                                                                scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+        
+        self.log_alpha_scheduler = torch.optim.lr_scheduler.StepLR(self.log_alpha_optimizer, 
+                                                                scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+        
+        self.decoder_scheduler = torch.optim.lr_scheduler.StepLR(self.decoder_optimizer, 
+                                                            scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+
         self.encoder_scheduler = torch.optim.lr_scheduler.StepLR(self.encoder_optimizer, 
-                                                                 scheduler_step_size, gamma=scheduler_gamma)
+                                                                scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+
 
         self.train()
         self.critic_target.train()

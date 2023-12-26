@@ -45,6 +45,7 @@ def make_agent(obs_shape, action_shape, args, device):
             'bisim_coef': args.bisim_coef,
             'decode_rewards_from_next_latent': args.decode_rewards_from_next_latent,
             'residual_actor': args.residual_actor,
+            'use_schedulers': args.use_schedulers
         }
         if args.encoder_mode == 'dbc':
             # Baseline Bisim Agent

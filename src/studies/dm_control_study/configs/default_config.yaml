@@ -34,7 +34,7 @@ trainer:
   make_env_module_path: src.envs.setup_env.make_env
   seed: 123
   batch_size: 128
-  eval_freq: 11_000 # every n epochs
+  eval_freq: 10_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1
   num_train_steps: 1_000_000
@@ -143,6 +143,7 @@ model:
   num_layers: 4
   decode_rewards_from_next_latent: true
   residual_actor: False
+  use_schedulers: False
 logger:
   project: ${..project.name}
   module_path: trainer.logger.Logger
