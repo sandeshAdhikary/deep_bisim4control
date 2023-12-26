@@ -1,7 +1,0 @@
-project: cheetah
-desc: |
-  cheetah run. By default no img_source (distractor specified)
-env:
-  domain_name: cheetah
-  task_name: run
-  img_source: null

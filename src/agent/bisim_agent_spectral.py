@@ -41,7 +41,6 @@ class SpectralBisimAgent(BisimAgent):
         
 
     def _weights(self, distances, kernel_bandwidth='auto'):
-        # kernel_bandwidth = self.encoder_kernel_bandwidth
         if kernel_bandwidth == 'auto':
             kernel_bandwidth = (2*(torch.median(distances)*2))
             kernel_bandwidth = kernel_bandwidth if kernel_bandwidth > 0 else 1.0
@@ -70,9 +69,7 @@ class SpectralBisimAgent(BisimAgent):
         return bisimilarity
     
     def _spectral_loss(self, W, h):
-        # 
         loss_dict = {}
-        # TODO: batch size is W.shape[0]?
         batch_size = W.shape[0]
 
         if self.encoder_normalize_loss:

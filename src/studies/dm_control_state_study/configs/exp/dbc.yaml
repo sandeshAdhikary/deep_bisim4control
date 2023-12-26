@@ -6,8 +6,6 @@ overrides:
     critic_lr: 0.00001
     actor_lr: 0.00001
     encoder_lr: 0.00001
-  trainer:
-    num_train_steps: 500_000
 sweeper:
   name: dbc_2
   num_runs: 8

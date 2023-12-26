@@ -1,7 +1,0 @@
-project: cartpole
-desc: |
-  Carttpole swingup. By default no img_source (distractor specified)
-env:
-  domain_name: cartpole
-  task_name: swingup
-  img_source: null

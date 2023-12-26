@@ -54,17 +54,17 @@ trainer:
     domain_name: ???
     task_name: ???
     img_source: ???
-    episode_length: 200
+    episode_length: 1000
     image_size: 88
     frame_stack: 3
     num_envs: 1
     render: false
     total_frames: 1000
     encoder_type: pixel
-    action_repeat: 1
+    action_repeat: 4
   eval_env:
     num_envs: 5
-    episode_length: 500
+    episode_length: 1000
     seed: ${...trainer.seed}
     domain_name: ${...trainer.env.domain_name}
     task_name: ${...trainer.env.task_name}
@@ -74,7 +74,7 @@ trainer:
     render: false
     total_frames: 1000
     encoder_type: pixel
-    action_repeat: 1
+    action_repeat: 4
   eval_metrics:
       # In addition to default metrics
       observation_videos:
@@ -203,4 +203,4 @@ evaluator:
       render: false
       total_frames: 1000
       encoder_type: pixel
-      action_repeat: 1
+      action_repeat: 4

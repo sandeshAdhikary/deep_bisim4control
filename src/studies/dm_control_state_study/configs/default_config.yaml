@@ -34,10 +34,10 @@ trainer:
   make_env_module_path: src.envs.setup_env.make_env
   seed: 123
   batch_size: 128
-  eval_freq: 100 # every n epochs
+  eval_freq: 11_000 # every n epochs
   init_steps: 5_000
   num_eval_episodes: 1
-  num_train_steps: 300_000
+  num_train_steps: 500_000
   port: 2000
   device: cuda
   terminal_display: rich
@@ -54,17 +54,17 @@ trainer:
     domain_name: ???
     task_name: ???
     img_source: ???
-    episode_length: 200
+    episode_length: 1_000
     image_size: 88
     frame_stack: 3
     num_envs: 1
     render: false
     total_frames: 1000
     encoder_type: vector
-    action_repeat: 1
+    action_repeat: 4
   eval_env:
     num_envs: 5
-    episode_length: 500
+    episode_length: 1_000
     seed: ${...trainer.seed}
     domain_name: ${...trainer.env.domain_name}
     task_name: ${...trainer.env.task_name}
@@ -74,7 +74,7 @@ trainer:
     render: false
     total_frames: 1000
     encoder_type: vector
-    action_repeat: 1
+    action_repeat: 4
   replay_buffer:
     replay_buffer_capacity: 1_000_000 # paper used 1M, but we don't have memory
   storage:
@@ -196,4 +196,4 @@ evaluator:
       render: false
       total_frames: 1000
       encoder_type: vector
-      action_repeat: 1
+      action_repeat: 4
