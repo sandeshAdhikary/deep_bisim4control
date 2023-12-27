@@ -1,6 +1,6 @@
 name: cartpole_kinetics
 desc: |
-  Carttpole swingup.
+  Carttpole swingup with kinetics video distractors
 overrides:
   trainer:
     env:

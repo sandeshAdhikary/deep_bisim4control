@@ -1,0 +1,9 @@
+name: cheetah_mnist
+desc: |
+  Cheetah Run with MNIST distractors
+overrides:
+  trainer:
+    env:
+      domain_name: cheetah
+      task_name: run
+      img_source: mnist

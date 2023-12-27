@@ -1,0 +1,9 @@
+name: walker
+desc: |
+  Walker walk
+overrides:
+  trainer:
+    env:
+      domain_name: walker
+      task_name: walk
+      img_source: null

@@ -1,0 +1,9 @@
+name: cheetah
+desc: |
+  Cheetah Run
+overrides:
+  trainer:
+    env:
+      domain_name: cheetah
+      task_name: run
+      img_source: null
