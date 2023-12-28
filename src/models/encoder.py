@@ -79,8 +79,8 @@ class PixelEncoder(nn.Module):
         out = self.ln(h_fc)
         self.outputs['ln'] = out
 
-        #TODO: The paper says to use a tanh activation here, but the code doesn't
-        h_fc = torch.tanh(h_fc)
+        # #TODO: The paper says to use a tanh activation here, but the code doesn't
+        # h_fc = torch.tanh(h_fc)
         
         return out
 
@@ -215,7 +215,7 @@ class VectorEncoder(nn.Module):
         out = self.output_layer(out)
         out = self.ln(out)
         #TODO: The paper says to use a tanh activation here, but the code doesn't
-        out = torch.tanh(out)
+        # out = torch.tanh(out)
         return out
     
     def copy_conv_weights_from(self, source):

@@ -49,5 +49,7 @@ def make(
                 'camera_id': camera_id,
                 'frame_skip': frame_skip,
             }
+            ,
+            max_episode_steps=max_episode_steps,
         )
-    return gym.make(env_id, max_episode_steps=max_episode_steps)
+    return gym.make(env_id)

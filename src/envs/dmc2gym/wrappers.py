@@ -4,6 +4,7 @@ import os
 import src.envs.local_dm_control_suite as dm_suite
 from dm_env import specs
 import numpy as np
+from dm_env._environment import TimeStep
 
 from src.envs.dmc2gym import natural_imgsource
 from distracting_control import suite as distracted_dm_suite
@@ -225,13 +226,18 @@ class DMCWrapper(core.Env):
         for _ in range(self._frame_skip):
             time_step = self._env.step(action)
             reward += time_step.reward or 0
-            done = time_step.last()
-            if done:
+            # TODO: The wrapper set done=time_step.last() i.e. only truncate, never terminate
+            # Separating this out into terminated and truncated flags
+            truncated = time_step.last()
+            terminated = False
+            # done = time_step.last()
+            if truncated or terminated:
                 break
         obs = self._get_obs(time_step)
-        extra['discount'] = time_step.discount
-        terminated = truncated = done
-        return obs, reward, truncated, terminated, extra
+        extra['discount'] = time_step.discount     
+
+
+        return obs, reward, terminated, truncated, extra
 
     def reset(self, **kwargs):
         time_step = self._env.reset()
