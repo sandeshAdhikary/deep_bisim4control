@@ -2,16 +2,12 @@ name: Test
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: neural_ef
-    encoder_type: pixel_l2
-    decoder_type: pixel_l2
+    encoder_mode: dbc
   trainer:
-    env:
-      encoder_type: pixel_l2
-    eval_env:
-      encoder_type: pixel_l2
     eval_freq: 100
     log_epoch_freq: 100
+    init_steps: 10
+    num_train_steps: 400
 sweeper:
   name: test
   num_runs: 3
