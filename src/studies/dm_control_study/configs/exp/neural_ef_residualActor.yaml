@@ -13,7 +13,7 @@ overrides:
       encoder_type: pixel_l2
 sweeper:
   name: neural_ef_residualActor
-  num_runs: 3
+  num_runs: 1
   parameters:
     trainer:
       seed: {values: [1, 2, 3]}

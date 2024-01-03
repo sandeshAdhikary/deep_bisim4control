@@ -1,8 +1,8 @@
-name: DBC_L2
+name: NeuralEFKSME
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: dbc
+    encoder_mode: neural_ef_ksme
     encoder_type: pixel_l2
     decoder_type: pixel_l2
   trainer:
@@ -11,8 +11,8 @@ overrides:
     eval_env:
       encoder_type: pixel_l2
 sweeper:
-  name: dbc_l2
-  num_runs: 3
+  name: neural_ef_ksme
+  num_runs: 1
   parameters:
     trainer:
       seed: {values: [1, 2, 3]}

@@ -1,10 +1,10 @@
-name: DBC
+name: KSME
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: dbc
+    encoder_mode: ksme
 sweeper:
-  name: dbc
+  name: ksme
   num_runs: 1
   parameters:
     trainer:

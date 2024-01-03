@@ -1,10 +1,11 @@
-name: Mico
+name: KSME_ResidualActor
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: mico
+    encoder_mode: ksme
+    residual_actor: True
 sweeper:
-  name: mico
+  name: ksme_residualActor
   num_runs: 1
   parameters:
     trainer:
