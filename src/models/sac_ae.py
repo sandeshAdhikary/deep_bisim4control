@@ -52,7 +52,7 @@ class Actor(nn.Module):
     """MLP actor network."""
     def __init__(
         self, obs_shape, action_shape, hidden_dim, encoder_type,
-        encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride, encoder_output_dim=None
+        encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride, encoder_output_dim=None, **kwargs
     ):
         super().__init__()
 
@@ -60,7 +60,8 @@ class Actor(nn.Module):
 
         self.encoder = make_encoder(
             encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride, output_dim=encoder_output_dim
+            num_filters, stride, output_dim=encoder_output_dim,
+            output_softmaxed=kwargs['encoder_softmax']
         )
 
         self.log_std_min = log_std_min
@@ -127,7 +128,7 @@ class ActorResidual(nn.Module):
     def __init__(
         self, obs_shape, action_shape, hidden_dim, encoder_type,
         encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride, 
-        encoder_output_dim=None, residual_prop=0.1
+        encoder_output_dim=None, residual_prop=0.1, **kwargs
     ):
         super().__init__()
 
@@ -135,13 +136,15 @@ class ActorResidual(nn.Module):
 
         self.encoder = make_encoder(
             encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride, output_dim=encoder_output_dim
+            num_filters, stride, output_dim=encoder_output_dim, 
+            output_softmaxed=kwargs['encoder_softmax']
         )
         
         self.register_buffer('residual_prop', torch.tensor(residual_prop))
         self.residual_encoder = make_encoder(
             encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride, output_dim=encoder_output_dim
+            num_filters, stride, output_dim=encoder_output_dim,
+            output_softmaxed=kwargs['encoder_softmax']
         )
 
         self.log_std_min = log_std_min
@@ -214,7 +217,7 @@ class Critic(nn.Module):
     """Critic network, employes two q-functions."""
     def __init__(
         self, obs_shape, action_shape, hidden_dim, encoder_type,
-        encoder_feature_dim, num_layers, num_filters, stride, encoder_output_dim=None
+        encoder_feature_dim, num_layers, num_filters, stride, encoder_output_dim=None, **kwargs
     ):
         super().__init__()
 
@@ -222,7 +225,8 @@ class Critic(nn.Module):
 
         self.encoder = make_encoder(
             encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride, output_dim=encoder_output_dim
+            num_filters, stride, output_dim=encoder_output_dim,
+            output_softmaxed=kwargs['encoder_softmax']
         )
 
         self.Q1 = QFunction(

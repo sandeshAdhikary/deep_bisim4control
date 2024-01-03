@@ -1,0 +1,2 @@
+name: SupervisedEvaluator
+eval_freq: 200

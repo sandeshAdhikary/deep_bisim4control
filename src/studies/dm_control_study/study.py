@@ -1,19 +1,7 @@
-from trainer.study import Study
+from trainer.study import RLStudy
 from omegaconf import DictConfig, OmegaConf
 import hydra
-from trainer.utils import import_module_attr
 from copy import deepcopy
-
-
-class RLStudy(Study):
-
-    def _make_model(self, config, trainer):
-        model_config = self._merge_configs(self.config['model'], config.get('model', {}))
-        model_config['obs_shape'] = trainer.env.observation_space.shape[1:]
-        model_config['action_shape'] = trainer.env.action_space.shape[1:]
-        model_cls = import_module_attr(model_config['module_path'])
-        return model_cls(dict(model_config))
-
 
 
 @hydra.main(version_base=None, config_path="configs", config_name='default_config')
@@ -34,7 +22,7 @@ def main(cfg: DictConfig) -> (DictConfig, DictConfig):
 
     # Define study
     study = RLStudy(study_config)
-
+    
     # Get the experiment mode
     exp_mode = exp_config['exp_mode']
     exp_config.__delattr__('exp_mode')

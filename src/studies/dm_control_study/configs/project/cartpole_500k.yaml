@@ -1,6 +1,6 @@
-name: cartpole
+name: cartpole_500k
 desc: |
-  Carttpole swingup.
+  Carttpole swingup but with 500k replay buffer.
 overrides:
   trainer:
     env:
@@ -10,3 +10,5 @@ overrides:
       action_repeat: 8
     eval_env:
       action_repeat: 8
+    replay_buffer:
+      replay_buffer_capacity: 500_000

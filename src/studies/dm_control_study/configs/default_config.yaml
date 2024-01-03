@@ -1,4 +1,8 @@
 study:
+  name: DMControlStudy
+  desc: |
+    Evaluating behavioral metric based representation learning algorithms on the Deep Mind Control Suite
+  icon: /project/src/studies/dm_control_study/icon.png
   storage:
       type: ssh
       host: ${oc.env:SSH_HOST}
@@ -37,7 +41,7 @@ trainer:
   eval_freq: 20_000 # every n epochs
   init_steps: 1_000
   num_eval_episodes: 1
-  num_train_steps: 1_00_001
+  num_train_steps: 1_000_001
   port: 2000
   device: cuda
   terminal_display: rich
@@ -144,6 +148,9 @@ model:
   decode_rewards_from_next_latent: true
   residual_actor: False
   use_schedulers: False
+  encoder_softmax: False
+  rew_max: ${..trainer.env.action_repeat} # For DMControl
+  rew_min: 0.0 # For DMControl
 logger:
   project: ${..project.name}
   module_path: trainer.logger.Logger
@@ -175,6 +182,8 @@ evaluator:
   saved_model_type: zip
   save_output: true
   display_progress: true
+  sweep_list: null # Evaluate all runs in these sweeps
+  run_list: null # Only evaluate these runs
   storage: 
     input:
       type: ssh
@@ -192,11 +201,24 @@ evaluator:
       sub_dir: eval # Save outputs to /eval
       overwrite: true
   envs:
+    dmc_env:
+      domain_name: ${....trainer.env.domain_name}
+      task_name: ${....trainer.env.task_name}
+      seed: 123
+      episode_length: &eval_episode_length 1_000
+      image_size: 88
+      img_source: null
+      frame_stack: 3
+      num_envs: 5
+      render: false
+      total_frames: 1000
+      encoder_type: pixel
+      action_repeat: ${....trainer.env.action_repeat}
     kinetics_env:
       domain_name: ${....trainer.env.domain_name}
       task_name: ${....trainer.env.task_name}
-      seed: ${....trainer.env.task_name}
-      episode_length: &eval_episode_length 1_000
+      seed: 123
+      episode_length: *eval_episode_length
       image_size: 88
       img_source: kinetics_videos
       frame_stack: 3
@@ -204,4 +226,30 @@ evaluator:
       render: false
       total_frames: 1000
       encoder_type: pixel
-      action_repeat: 4
+      action_repeat: ${....trainer.env.action_repeat}
+    mnist_env:
+      domain_name: ${....trainer.env.domain_name}
+      task_name: ${....trainer.env.task_name}
+      seed: 123
+      episode_length: *eval_episode_length
+      image_size: 88
+      img_source: mnist
+      frame_stack: 3
+      num_envs: 5
+      render: false
+      total_frames: 1000
+      encoder_type: pixel
+      action_repeat: ${....trainer.env.action_repeat}
+    driving_stereo:
+      domain_name: ${....trainer.env.domain_name}
+      task_name: ${....trainer.env.task_name}
+      seed: 123
+      episode_length: *eval_episode_length
+      image_size: 88
+      img_source: driving_stereo
+      frame_stack: 3
+      num_envs: 5
+      render: false
+      total_frames: 1000
+      encoder_type: pixel
+      action_repeat: ${....trainer.env.action_repeat}

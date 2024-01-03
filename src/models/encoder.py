@@ -24,6 +24,7 @@ class PixelEncoder(nn.Module):
 
         self.feature_dim = feature_dim
         self.num_layers = num_layers
+        self.output_softmaxed = kwargs.get('output_softmaxed', False)
 
         self.convs = nn.ModuleList(
             [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
@@ -79,8 +80,8 @@ class PixelEncoder(nn.Module):
         out = self.ln(h_fc)
         self.outputs['ln'] = out
 
-        # #TODO: The paper says to use a tanh activation here, but the code doesn't
-        # h_fc = torch.tanh(h_fc)
+        if self.output_softmaxed:
+            out = torch.softmax(out, dim=-1)
         
         return out
 
@@ -365,20 +366,24 @@ _CLUSTER_ENCODERS = {}
 
 
 def make_encoder(
-    encoder_type, obs_shape, feature_dim, num_layers, num_filters, stride, output_dim=None
+    encoder_type, obs_shape, feature_dim, num_layers, num_filters, stride, output_dim=None,
+    **kwargs
 ):
     
     # If output_dim not specified, assume it is feature_dim
     output_dim = output_dim or feature_dim
+    output_softmaxed=kwargs.get('output_softmaxed', False)
 
     assert encoder_type in _AVAILABLE_ENCODERS
 
     if encoder_type in _CLUSTER_ENCODERS:
         # Set cluster dim to be output dim
         return _CLUSTER_ENCODERS[encoder_type](
-                obs_shape, feature_dim, num_layers, num_filters, stride, num_clusters=output_dim
+                obs_shape, feature_dim, num_layers, num_filters, stride, num_clusters=output_dim,
+                output_softmaxed=output_softmaxed
             )
     else:
         return _AVAILABLE_ENCODERS[encoder_type](
-            obs_shape, feature_dim, num_layers, num_filters, stride
+            obs_shape, feature_dim, num_layers, num_filters, stride,
+            output_softmaxed=output_softmaxed
         )

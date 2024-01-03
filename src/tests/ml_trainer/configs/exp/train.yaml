@@ -1,3 +1,0 @@
-exp_mode: train
-trainer:
-  seed: 2

@@ -1,4 +1,8 @@
 study:
+  name: Distance Invariance
+  desc: |
+    Evaluating the effectiveness of various representation learning algorithms in 
+    enforcing distance-based-invariance.
   storage:
       type: ssh
       host: ${oc.env:SSH_HOST}

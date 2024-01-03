@@ -1,0 +1,14 @@
+name: cheetah_500k
+desc: |
+  Cheetah Run
+overrides:
+  trainer:
+    env:
+      domain_name: cheetah
+      task_name: run
+      img_source: null
+      action_repeat: 4
+    eval_env:
+      action_repeat: 4
+    replay_buffer:
+      replay_buffer_capacity: 500_000

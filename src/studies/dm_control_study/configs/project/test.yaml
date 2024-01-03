@@ -1,9 +1,7 @@
-name: Test
-exp_mode: ???
+name: test
+desc: |
+  Test Project
 overrides:
-  model:
-    encoder_mode: neural_ef_ksme
-    encoder_softmax: False
   trainer:
     eval_freq: 99
     log_epoch_freq: 10
@@ -13,9 +11,10 @@ overrides:
     terminal_display: rich
     replay_buffer:
       replay_buffer_capacity: 5000
-sweeper:
-  name: test_two
-  num_runs: 3
-  parameters:
-    trainer:
-      seed: {values: [1, 2, 3]}
+    env:
+      domain_name: finger
+      task_name: spin
+      img_source: null
+      action_repeat: 4
+    eval_env:
+      action_repeat: 4

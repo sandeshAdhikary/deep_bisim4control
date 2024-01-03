@@ -1,0 +1,11 @@
+name: Mico
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: mico
+sweeper:
+  name: mico
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}

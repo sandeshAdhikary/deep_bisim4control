@@ -1,0 +1,14 @@
+name: walker_500k
+desc: |
+  Walker walk
+overrides:
+  trainer:
+    env:
+      domain_name: walker
+      task_name: walk
+      img_source: null
+      action_repeat: 2
+    eval_env:
+      action_repeat: 2
+    replay_buffer:
+      replay_buffer_capacity: 500_000
