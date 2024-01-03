@@ -2,6 +2,10 @@ import numpy as np
 from types import SimpleNamespace
 from src.agent.bisim_agent_baseline import BisimAgent
 from src.agent.bisim_agent_spectral import SpectralBisimAgent, NeuralEFBisimAgent
+from src.agent.bisim_agent_ksme import KSMEBisimAgent, NeuralEFKSMEBisimAgent
+
+
+DISTANCE_TYPES = {'dbc': 'bisim', 'mico': 'mico'}
 
 def make_agent(obs_shape, action_shape, args, device):
     
@@ -45,9 +49,11 @@ def make_agent(obs_shape, action_shape, args, device):
             'bisim_coef': args.bisim_coef,
             'decode_rewards_from_next_latent': args.decode_rewards_from_next_latent,
             'residual_actor': args.residual_actor,
-            'use_schedulers': args.use_schedulers
+            'use_schedulers': args.use_schedulers,
+            'encoder_softmax': args.encoder_softmax,
+            'distance_type': DISTANCE_TYPES.get(args.encoder_mode)
         }
-        if args.encoder_mode == 'dbc':
+        if args.encoder_mode in ['dbc', 'mico']:
             # Baseline Bisim Agent
             agent = BisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'spectral':
@@ -60,6 +66,14 @@ def make_agent(obs_shape, action_shape, args, device):
             agent = SpectralBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'neural_ef':
             agent = NeuralEFBisimAgent(**agent_kwargs)
+        elif args.encoder_mode == 'ksme':
+            agent_kwargs.update({'rew_max': args.rew_max, 'rew_min': args.rew_min })
+            agent = KSMEBisimAgent(**agent_kwargs)
+        elif args.encoder_mode == 'neural_ef_ksme':
+            agent_kwargs.update({'rew_max': args.rew_max, 'rew_min': args.rew_min })
+            agent = NeuralEFKSMEBisimAgent(**agent_kwargs)
+        else:
+            raise ValueError(f"Unknown encoder_mode {args.encoder_mode}")
     else:
         raise NotImplementedError(f"Agent {args.agent} not implemented")
     return agent

@@ -51,7 +51,9 @@ class BisimAgent(object):
         bisim_coef=0.5,
         decode_rewards_from_next_latent=True,
         residual_actor=False,
-        use_schedulers=True
+        use_schedulers=True,
+        encoder_softmax=False,
+        distance_type='bisim'
     ):
         self.device = device
         self.discount = discount
@@ -66,28 +68,31 @@ class BisimAgent(object):
         self.decode_rewards_from_next_latent = decode_rewards_from_next_latent
         self.residual_actor = residual_actor
 
+        self.distance_type = distance_type
+        self.mico_beta = 0.1 # beta for MICO distance
+
         if residual_actor:
             self.actor = ActorResidual(
                 obs_shape, action_shape, hidden_dim, encoder_type,
                 encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-                num_layers, num_filters, encoder_stride
+                num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
             ).to(device)
         else:
             self.actor = Actor(
                 obs_shape, action_shape, hidden_dim, encoder_type,
                 encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-                num_layers, num_filters, encoder_stride
+                num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
             ).to(device)
 
 
         self.critic = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
         ).to(device)
 
         self.critic_target = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
         ).to(device)
 
         self.critic_target.load_state_dict(self.critic.state_dict())
@@ -293,7 +298,7 @@ class BisimAgent(object):
         return output_dict
 
 
-    def update_encoder(self, obs, action, reward, L=None, step=None):
+    def update_encoder(self, obs, action, reward, L=None, step=None, next_obs=None):
         """
         Same as original but return output_dict in addition to the loss
         """
@@ -322,20 +327,39 @@ class BisimAgent(object):
         else:
             raise NotImplementedError
 
-        z_dist = F.smooth_l1_loss(h, h2, reduction='none')
-        r_dist = F.smooth_l1_loss(reward, reward2, reduction='none')
-        if self.transition_model_type == '':
-            transition_dist = F.smooth_l1_loss(pred_next_latent_mu1, pred_next_latent_mu2, reduction='none')
-        else:
-            transition_dist = torch.sqrt(
-                (pred_next_latent_mu1 - pred_next_latent_mu2).pow(2) +
-                (pred_next_latent_sigma1 - pred_next_latent_sigma2).pow(2)
-            )
-            # transition_dist  = F.smooth_l1_loss(pred_next_latent_mu1, pred_next_latent_mu2, reduction='none') \
-            #     +  F.smooth_l1_loss(pred_next_latent_sigma1, pred_next_latent_sigma2, reduction='none')
+        if self.distance_type == 'bisim':
+            # Loss function as used in the original DBC paper
+            z_dist = F.smooth_l1_loss(h, h2, reduction='none')
+            r_dist = F.smooth_l1_loss(reward, reward2, reduction='none')
+            if self.transition_model_type == '':
+                transition_dist = F.smooth_l1_loss(pred_next_latent_mu1, pred_next_latent_mu2, reduction='none')
+            else:
+                transition_dist = torch.sqrt(
+                    (pred_next_latent_mu1 - pred_next_latent_mu2).pow(2) +
+                    (pred_next_latent_sigma1 - pred_next_latent_sigma2).pow(2)
+                )
+                # transition_dist  = F.smooth_l1_loss(pred_next_latent_mu1, pred_next_latent_mu2, reduction='none') \
+                #     +  F.smooth_l1_loss(pred_next_latent_sigma1, pred_next_latent_sigma2, reduction='none')
 
-        bisimilarity = r_dist + self.discount * transition_dist
-        loss = (z_dist - bisimilarity).pow(2).mean()
+            bisimilarity = r_dist + self.discount * transition_dist
+            loss = (z_dist - bisimilarity).pow(2).mean()
+        elif self.distance_type == 'mico':
+            # Get the distance between the embeddings
+            z_dist = 0.5*(h.pow(2).sum(dim=1) + h2.pow(2).sum(dim=1))
+            z_dist += self.mico_beta * torch.cosine_similarity(h, h2, dim=1, eps=1e-8)
+            # Get the target MICO distance
+            reward_dist = F.smooth_l1_loss(reward, reward2, reduction='none').squeeze() # The reward distance
+            with torch.no_grad():
+                # Note: MICO uses the frozen encoder to get these
+                h_next = self.critic_target.encoder(next_obs)
+                h_next_2 = h_next[perm]
+            transition_dist = 0.5*(h_next.pow(2).sum(dim=1) + h_next_2.pow(2).sum(dim=1))
+            transition_dist += self.mico_beta * torch.cosine_similarity(h_next, h_next_2, dim=1, eps=1e-8)
+            mico_dist = reward_dist + self.discount * transition_dist
+            loss = (z_dist - mico_dist).pow(2).mean()
+        else:
+            raise ValueError(f"Unknown distance type: {self.distance_type}")
+
         output_dict['encoder_loss'] = loss.item()
         if L is not None:
             L.log('train_ae/encoder_loss', loss, step)
@@ -346,7 +370,7 @@ class BisimAgent(object):
         Same as original except:
         1. Returns output_dict
         2. Added option to decode rewards from next_latent or current_latent
-        3. Swapper self.reward_decoder() with self.decode_reward(). The latter
+        3. Swapped self.reward_decoder() with self.decode_reward(). The latter
            is a more general function that can take next_latent state as well
         """
         output_dict = {}
@@ -365,11 +389,11 @@ class BisimAgent(object):
             L.log('train_ae/transition_loss', loss, step)
         
         if self.decode_rewards_from_next_latent:
+            # Predict reward from next latent
             pred_next_latent = self.transition_model.sample_prediction(torch.cat([h, action], dim=1))
             pred_reward = self.decode_reward(pred_next_latent)
         else:
             # Predict reward from current latent
-            # TODO: Reward should be predicted from next_h not from h
             pred_reward = self.decode_reward(h)
 
         reward_loss = F.mse_loss(pred_reward, reward)
@@ -406,7 +430,7 @@ class BisimAgent(object):
 
         critic_update_dict = self.update_critic(obs, action, reward, next_obs, not_done, L, step)
         transition_reward_loss, transition_update_dict = self.update_transition_reward_model(obs, action, next_obs, reward, L, step)
-        encoder_loss, encoder_update_dict = self.update_encoder(obs, action, reward, L, step)
+        encoder_loss, encoder_update_dict = self.update_encoder(obs, action, reward, L, step, next_obs=next_obs)
         total_loss = self.bisim_coef * encoder_loss + transition_reward_loss
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()

@@ -25,7 +25,7 @@ class SpectralBisimAgent(BisimAgent):
                          **kwargs
                          )
 
-    def update_encoder(self, obs, action, reward, L=None, step=None):
+    def update_encoder(self, obs, action, reward, L=None, step=None, next_obs=None):
         # Current latent
         h = self.critic.encoder(obs)
         # Predict the next latent
@@ -96,8 +96,8 @@ class SpectralBisimAgent(BisimAgent):
 
 class NeuralEFBisimAgent(SpectralBisimAgent):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
 
     def _spectral_loss(self, W, features):
         """
