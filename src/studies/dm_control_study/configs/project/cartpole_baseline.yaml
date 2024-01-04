@@ -1,4 +1,4 @@
-name: cartpole
+name: cartpole_baseline
 desc: |
   Carttpole swingup.
 overrides:
