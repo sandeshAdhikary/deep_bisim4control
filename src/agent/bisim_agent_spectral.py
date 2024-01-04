@@ -38,6 +38,12 @@ class SpectralBisimAgent(BisimAgent):
             distances = self._distance(reward, pred_next_latent_mu1, pred_next_latent_sigma1)
             # Get kernel/weights matrix
             W = self._weights(distances, kernel_bandwidth=self.encoder_kernel_bandwidth)
+
+            if self.normalize_kernel:
+                D_sqrt = torch.diag(torch.sum(W, dim=1)**(-0.5))
+                #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+                W = D_sqrt @ W @ D_sqrt
+
         loss, loss_dict = self._spectral_loss(W, h)
         
         return loss, loss_dict    
@@ -110,11 +116,6 @@ class NeuralEFBisimAgent(SpectralBisimAgent):
         psis_x = features
         kernel = W
         
-        if self.normalize_kernel:
-            D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
-            #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
-            kernel = D_sqrt @ kernel @ D_sqrt
-
         K_psis = kernel @ psis_x
         psis_K_psis = psis_x.T @ K_psis
         psisSG_K_psis = psis_x.T.clone().detach() @ K_psis

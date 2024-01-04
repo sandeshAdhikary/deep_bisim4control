@@ -64,13 +64,31 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
         # Compute the kernel
         with torch.no_grad():
             h_next = self.critic_target.encoder(next_obs)
-            transition_sim = (h_next @ h_next.t())
+            # transition_sim = (h_next @ h_next.t())
+            transition_dist = torch.cdist(h_next, h_next, p=2)
+            transition_sim = self._kernel(transition_dist, kernel_bandwidth='auto')
             kernel = reward_sim + self.discount*transition_sim
+
+            if self.normalize_kernel:
+                D_sqrt = torch.diag(torch.sum(kernel, dim=1))
+                #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+                kernel = D_sqrt @ kernel @ D_sqrt
 
         loss, loss_dict = self._spectral_loss(kernel, h)
 
         return loss, loss_dict
     
+    def _kernel(self, distances, kernel_bandwidth='auto'):
+        if kernel_bandwidth == 'auto':
+            kernel_bandwidth = (2*(torch.median(distances)*2))
+            kernel_bandwidth = kernel_bandwidth if kernel_bandwidth > 0 else 1.0
+            nu = 1./kernel_bandwidth
+        else:
+            nu = 1./(2*(kernel_bandwidth**2))
+        W = torch.exp(-nu*(distances)**2) # shape (B, B)
+        return W
+
+
     def _spectral_loss(self, W, features):
         """
         W : kernel matrix (weights matrix)
@@ -81,11 +99,6 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
 
         psis_x = features
         kernel = W
-
-        if self.normalize_kernel:
-            D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
-            #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
-            kernel = D_sqrt @ kernel @ D_sqrt
 
         K_psis = kernel @ psis_x
         psis_K_psis = psis_x.T @ K_psis
