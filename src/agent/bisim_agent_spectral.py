@@ -13,17 +13,20 @@ class SpectralBisimAgent(BisimAgent):
         encoder_kernel_bandwidth='auto',
         encoder_normalize_loss=True,
         encoder_ortho_loss_reg=1e-3,
+        normalize_kernel=False,
         **kwargs
     ):
         self.encoder_kernel_bandwidth = encoder_kernel_bandwidth
         self.encoder_normalize_loss = encoder_normalize_loss
         self.encoder_ortho_loss_reg = encoder_ortho_loss_reg
+        self.normalize_kernel = normalize_kernel
         super().__init__(obs_shape,
                          action_shape,
                          device,
                          transition_model_type,
                          **kwargs
                          )
+
 
     def update_encoder(self, obs, action, reward, L=None, step=None, next_obs=None):
         # Current latent
@@ -96,9 +99,6 @@ class SpectralBisimAgent(BisimAgent):
 
 class NeuralEFBisimAgent(SpectralBisimAgent):
 
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-
     def _spectral_loss(self, W, features):
         """
         W : kernel matrix (weights matrix)
@@ -109,6 +109,11 @@ class NeuralEFBisimAgent(SpectralBisimAgent):
 
         psis_x = features
         kernel = W
+        
+        if self.normalize_kernel:
+            D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
+            #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+            kernel = D_sqrt @ kernel @ D_sqrt
 
         K_psis = kernel @ psis_x
         psis_K_psis = psis_x.T @ K_psis

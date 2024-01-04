@@ -48,6 +48,11 @@ class KSMEBisimAgent(BisimAgent):
 
 class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
 
+    def __init__(self, *args, **kwargs):
+        self.normalize_kernel = kwargs.pop('normalize_kernel', False)
+        super().__init__(*args, **kwargs)
+
+
     def update_encoder(self, obs, action, reward, L=None, step=None, next_obs=None):
         """
         Same as original but return output_dict in addition to the loss
@@ -76,6 +81,11 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
 
         psis_x = features
         kernel = W
+
+        if self.normalize_kernel:
+            D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
+            #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+            kernel = D_sqrt @ kernel @ D_sqrt
 
         K_psis = kernel @ psis_x
         psis_K_psis = psis_x.T @ K_psis
