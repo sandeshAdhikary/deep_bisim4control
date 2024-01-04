@@ -1,0 +1,12 @@
+name: cartpole
+desc: |
+  Carttpole swingup.
+overrides:
+  trainer:
+    env:
+      domain_name: cartpole
+      task_name: swingup
+      img_source: null
+      action_repeat: 8
+    eval_env:
+      action_repeat: 8

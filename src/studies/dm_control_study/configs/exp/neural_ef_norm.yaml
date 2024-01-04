@@ -5,7 +5,7 @@ overrides:
     encoder_mode: neural_ef
     encoder_type: pixel_l2
     decoder_type: pixel_l2
-    encoder_softmax: True
+    normalize_kernel: true
   trainer:
     env:
       encoder_type: pixel_l2

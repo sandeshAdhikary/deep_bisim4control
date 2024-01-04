@@ -1,0 +1,12 @@
+name: finger_spin
+desc: |
+  Finger spin.
+overrides:
+  trainer:
+    env:
+      domain_name: finger
+      task_name: spin
+      img_source: null
+      action_repeat: 2
+    eval_env:
+      action_repeat: 2
