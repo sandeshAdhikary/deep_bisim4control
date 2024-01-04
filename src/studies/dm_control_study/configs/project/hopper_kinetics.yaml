@@ -1,9 +1,0 @@
-name: hopper_kinetics
-desc: |
-  Hopper hop
-overrides:
-  trainer:
-    env:
-      domain_name: hopper
-      task_name: hop
-      img_source: kinetics_videos

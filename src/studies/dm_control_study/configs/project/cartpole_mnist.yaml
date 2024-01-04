@@ -1,9 +1,0 @@
-name: cartpole_mnist
-desc: |
-  Carttpole swingup with Mnist distractors
-overrides:
-  trainer:
-    env:
-      domain_name: cartpole
-      task_name: swingup
-      img_source: mnist

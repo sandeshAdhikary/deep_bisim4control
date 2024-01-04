@@ -1,9 +1,0 @@
-name: cheetah_kinetics
-desc: |
-  Cheetah Run with kinetics video distractors
-overrides:
-  trainer:
-    env:
-      domain_name: cheetah
-      task_name: run
-      img_source: kinetics_videos

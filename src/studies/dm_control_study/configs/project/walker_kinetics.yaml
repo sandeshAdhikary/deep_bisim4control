@@ -1,9 +1,0 @@
-name: walker_kinetics
-desc: |
-  Walker walk
-overrides:
-  trainer:
-    env:
-      domain_name: walker
-      task_name: walk
-      img_source: kinetics_videos

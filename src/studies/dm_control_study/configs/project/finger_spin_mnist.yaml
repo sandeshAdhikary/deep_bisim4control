@@ -1,9 +1,0 @@
-name: finger_spin_mnist
-desc: |
-  Finger spin with MNIST distractors
-overrides:
-  trainer:
-    env:
-      domain_name: finger
-      task_name: spin
-      img_source: mnist

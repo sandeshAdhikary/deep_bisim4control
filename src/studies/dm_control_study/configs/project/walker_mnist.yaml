@@ -1,9 +1,0 @@
-name: walker_mnist
-desc: |
-  Walker walk with MNIST distractors
-overrides:
-  trainer:
-    env:
-      domain_name: walker
-      task_name: walk
-      img_source: mnist

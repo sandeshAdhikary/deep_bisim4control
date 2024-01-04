@@ -1,9 +1,0 @@
-name: finger_spin_kinetics
-desc: |
-  Finger spin with kinetics distractors.
-overrides:
-  trainer:
-    env:
-      domain_name: finger
-      task_name: spin
-      img_source: kinetics_videos

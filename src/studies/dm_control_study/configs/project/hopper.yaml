@@ -1,9 +1,0 @@
-name: hopper
-desc: |
-  Hopper hop
-overrides:
-  trainer:
-    env:
-      domain_name: hopper
-      task_name: hop
-      img_source: null
