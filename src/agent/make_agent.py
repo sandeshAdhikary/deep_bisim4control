@@ -71,7 +71,11 @@ def make_agent(obs_shape, action_shape, args, device):
             agent_kwargs.update({'rew_max': args.rew_max, 'rew_min': args.rew_min })
             agent = KSMEBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'neural_ef_ksme':
-            agent_kwargs.update({'normalize_kernel': args.normalize_kernel, 'rew_max': args.rew_max, 'rew_min': args.rew_min })
+            agent_kwargs.update({'normalize_kernel': args.normalize_kernel, 
+                                 'rew_max': args.rew_max, 
+                                 'rew_min': args.rew_min,
+                                 'kernel_type': args.kernel_type
+                                 })
             agent = NeuralEFKSMEBisimAgent(**agent_kwargs)
         else:
             raise ValueError(f"Unknown encoder_mode {args.encoder_mode}")

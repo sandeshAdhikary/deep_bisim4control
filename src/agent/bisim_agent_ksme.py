@@ -50,6 +50,7 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
 
     def __init__(self, *args, **kwargs):
         self.normalize_kernel = kwargs.pop('normalize_kernel', False)
+        self.kernel_type = kwargs.pop('kernel_type', 'gaussian')
         super().__init__(*args, **kwargs)
 
 
@@ -64,9 +65,14 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
         # Compute the kernel
         with torch.no_grad():
             h_next = self.critic_target.encoder(next_obs)
-            # transition_sim = (h_next @ h_next.t())
-            transition_dist = torch.cdist(h_next, h_next, p=2)
-            transition_sim = self._kernel(transition_dist, kernel_bandwidth='auto')
+            if self.kernel_type == 'gaussian':
+                transition_dist = torch.cdist(h_next, h_next, p=2)
+                transition_sim = self._kernel(transition_dist, kernel_bandwidth='auto')
+            elif self.kernel_type == 'inner_product':
+                transition_sim = (h_next @ h_next.t())
+            else:
+                raise ValueError(f'Unknown kernel type {self.kernel_type}')
+            
             kernel = reward_sim + self.discount*transition_sim
 
             if self.normalize_kernel:
