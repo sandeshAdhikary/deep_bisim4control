@@ -1,4 +1,4 @@
-name: NeuralEFKSME
+name: NeuralEFKSME_InnerProduct
 exp_mode: ???
 overrides:
   model:
@@ -12,7 +12,7 @@ overrides:
     eval_env:
       encoder_type: pixel_l2
 sweeper:
-  name: neural_ef_ksme
+  name: neural_ef_ksme_inner_product
   num_runs: 1
   parameters:
     trainer:
