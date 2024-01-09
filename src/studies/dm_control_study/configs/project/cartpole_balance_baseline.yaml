@@ -1,0 +1,12 @@
+name: cartpole_balance_baseline
+desc: |
+  Cartpole balance.
+overrides:
+  trainer:
+    env:
+      domain_name: cartpole
+      task_name: balance
+      img_source: null
+      action_repeat: 8
+    eval_env:
+      action_repeat: 8

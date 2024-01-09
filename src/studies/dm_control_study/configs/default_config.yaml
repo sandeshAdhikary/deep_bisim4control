@@ -17,11 +17,6 @@ study:
       username: ${oc.env:MYSQL_USERNAME}
       password: ${oc.env:MYSQL_PASSWORD}
   metrics: 
-    episode_rewards:
-      name: episode_rewards
-      type: scalar
-      temporal: true
-      table_spec: null
     avg_episode_reward:
       name: avg_episode_reward
       type: scalar
@@ -32,6 +27,15 @@ study:
       type: object
       temporal: false
       table_spec: null
+    rewards_dataframe:
+      name: rewards_dataframe
+      module_path: src.studies.dm_control_study.metrics.RewardsDataFrameMetric
+    tsne:
+      name: tsne
+      module_path: src.studies.dm_control_study.metrics.TSNEClustersMetric
+    kmeans:
+      name: kmeans
+      module_path: src.studies.dm_control_study.metrics.KMeansClustersMetric
 trainer:
   project: ${..project.name}
   module_path: src.studies.dm_control_study.trainers.BisimRLTrainer
@@ -152,6 +156,7 @@ model:
   rew_max: ${..trainer.env.action_repeat} # For DMControl
   rew_min: 0.0 # For DMControl
   normalize_kernel: true
+  kernel_type: gaussian
 logger:
   project: ${..project.name}
   module_path: trainer.logger.Logger
@@ -174,9 +179,10 @@ sweeper:
   heartbeat_timeout: 30
   parameters: ???
 evaluator:
+  # module_path: src.studies.dm_control_study.evaluators.DMCStudyRLEvaluator
   project: ${..project.name}
   use_best_ckpt: true
-  num_envs: 5
+  num_envs: 30
   max_eval_jobs: 2
   async_eval: false
   model_name: ckpt.zip # use best_ckpt.zip or ckpt.zip
@@ -185,6 +191,7 @@ evaluator:
   display_progress: true
   sweep_list: null # Evaluate all runs in these sweeps
   run_list: null # Only evaluate these runs
+  random_agent: false
   storage: 
     input:
       type: ssh
@@ -210,47 +217,80 @@ evaluator:
       image_size: 88
       img_source: null
       frame_stack: 3
-      num_envs: 5
+      num_envs: ${....evaluator.num_envs}
       render: false
       total_frames: 1000
       encoder_type: pixel
       action_repeat: ${....trainer.env.action_repeat}
-    kinetics_env:
-      domain_name: ${....trainer.env.domain_name}
-      task_name: ${....trainer.env.task_name}
-      seed: 123
-      episode_length: *eval_episode_length
-      image_size: 88
-      img_source: kinetics_videos
-      frame_stack: 3
-      num_envs: 5
-      render: false
-      total_frames: 1000
-      encoder_type: pixel
-      action_repeat: ${....trainer.env.action_repeat}
-    mnist_env:
-      domain_name: ${....trainer.env.domain_name}
-      task_name: ${....trainer.env.task_name}
-      seed: 123
-      episode_length: *eval_episode_length
-      image_size: 88
-      img_source: mnist
-      frame_stack: 3
-      num_envs: 5
-      render: false
-      total_frames: 1000
-      encoder_type: pixel
-      action_repeat: ${....trainer.env.action_repeat}
-    driving_stereo:
-      domain_name: ${....trainer.env.domain_name}
-      task_name: ${....trainer.env.task_name}
-      seed: 123
-      episode_length: *eval_episode_length
-      image_size: 88
-      img_source: driving_stereo
-      frame_stack: 3
-      num_envs: 5
-      render: false
-      total_frames: 1000
-      encoder_type: pixel
-      action_repeat: ${....trainer.env.action_repeat}
+  metrics: 
+    avg_episode_reward:
+      name: avg_episode_reward
+      type: scalar
+      temporal: false
+      table_spec: null
+    observation_videos:
+      name: observation_videos
+      type: object
+      temporal: false
+      table_spec: null
+    observations:
+      name: observations
+      type: object
+      temporal: false
+      table_spec: null
+    tsne:
+      name: tsne
+      module_path: src.studies.dm_control_study.metrics.TSNEClustersMetric
+    kmeans:
+      name: kmeans
+      module_path: src.studies.dm_control_study.metrics.KMeansClustersMetric
+    rewards_dataframe:
+      name: rewards_dataframe
+      module_path: src.studies.dm_control_study.metrics.RewardsDataFrameMetric
+  callbacks:
+      clusters:
+        module_path: src.studies.dm_control_study.evaluators.ClusteringEvalCallback
+        data_path: ${oc.env:DMC_OBSERVATIONS_DATASET}
+        env_name: ${....trainer.env.domain_name}-${....trainer.env.task_name}
+        n_iter: 5000
+        random_state: 0
+        init: random
+    # kinetics_env:
+    #   domain_name: ${....trainer.env.domain_name}
+    #   task_name: ${....trainer.env.task_name}
+    #   seed: 123
+    #   episode_length: *eval_episode_length
+    #   image_size: 88
+    #   img_source: kinetics_videos
+    #   frame_stack: 3
+    #   num_envs: 5
+    #   render: false
+    #   total_frames: 1000
+    #   encoder_type: pixel
+    #   action_repeat: ${....trainer.env.action_repeat}
+    # mnist_env:
+    #   domain_name: ${....trainer.env.domain_name}
+    #   task_name: ${....trainer.env.task_name}
+    #   seed: 123
+    #   episode_length: *eval_episode_length
+    #   image_size: 88
+    #   img_source: mnist
+    #   frame_stack: 3
+    #   num_envs: 5
+    #   render: false
+    #   total_frames: 1000
+    #   encoder_type: pixel
+    #   action_repeat: ${....trainer.env.action_repeat}
+    # driving_stereo:
+    #   domain_name: ${....trainer.env.domain_name}
+    #   task_name: ${....trainer.env.task_name}
+    #   seed: 123
+    #   episode_length: *eval_episode_length
+    #   image_size: 88
+    #   img_source: driving_stereo
+    #   frame_stack: 3
+    #   num_envs: 5
+    #   render: false
+    #   total_frames: 1000
+    #   encoder_type: pixel
+    #   action_repeat: ${....trainer.env.action_repeat}

@@ -1,0 +1,12 @@
+name: walker_kinetics_baseline
+desc: |
+  Walker walk
+overrides:
+  trainer:
+    env:
+      domain_name: walker
+      task_name: walk
+      img_source: kinetics_videos
+      action_repeat: 2
+    eval_env:
+      action_repeat: 2

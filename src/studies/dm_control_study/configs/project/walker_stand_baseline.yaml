@@ -1,0 +1,12 @@
+name: walker_stand_baseline
+desc: |
+  Walker stand
+overrides:
+  trainer:
+    env:
+      domain_name: walker
+      task_name: stand
+      img_source: null
+      action_repeat: 2
+    eval_env:
+      action_repeat: 2

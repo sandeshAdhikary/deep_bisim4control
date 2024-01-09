@@ -1,0 +1,12 @@
+name: point_mass_baseline
+desc: |
+  Point mass.
+overrides:
+  trainer:
+    env:
+      domain_name: point_mass
+      task_name: easy
+      img_source: null
+      action_repeat: 4
+    eval_env:
+      action_repeat: 4
