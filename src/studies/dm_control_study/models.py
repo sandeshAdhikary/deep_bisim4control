@@ -22,9 +22,7 @@ class BisimModel(Model):
         )
 
         super().__init__(config, model=model, optimizer=None, loss_fn=None)
-    # @property
-    # def module_path(self):
-    #     return 'src.study.models'
+
         
     def parse_config(self, config):
 

@@ -28,7 +28,7 @@ def main(cfg: DictConfig) -> (DictConfig, DictConfig):
     exp_config.__delattr__('exp_mode')
 
     # Run experiment
-    if exp_mode == 'train': 
+    if exp_mode == 'train':
         study.train(exp_config)
     elif exp_mode == 'sweep':
         study.sweep(exp_config, num_runs=exp_config['sweeper']['num_runs'])
