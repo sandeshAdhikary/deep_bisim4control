@@ -3,6 +3,13 @@ from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, DataReturnMode
 import altair as alt
+import seaborn as sns
+from rliable import library as rly
+from rliable import metrics as rliable_metrics
+from rliable import plot_utils
+import numpy as np
+import matplotlib.pyplot as plt
+from itertools import combinations, permutations
 
 def pretty_title(x):
     x = x.replace('_', ' ').title()
@@ -87,20 +94,25 @@ def run_selector(study):
         project, sweep, run_id, steps = row['project'], row['sweep'], row['run_id'], row['steps']
         if sweep.lower() == 'none':
             sweep = None
-        run_info = study.run_info(project=project, sweep=sweep, run_id=run_id)
-        
-        # Reformat model and trainer dicts as sets
-        model_dict, trainer_dict = {}, {}
-        for k in run_info['model'].keys():
-            model_dict[k] = str(run_info['model'][k])
-        for k in run_info['trainer'].keys():
-            trainer_dict[k] = str(run_info['trainer'][k])
-        model_dict = set(model_dict.items())
-        trainer_dict = set(trainer_dict.items())
-        info_dict = set([('run_id', run_id), ('sweep', sweep), ('steps', steps)])
-        run_dict = set.union(model_dict, trainer_dict, info_dict)
-        all_dicts.append(run_dict)
-        all_keys.append(set([x[0] for x in run_dict]))
+
+        try:
+            run_info = study.run_info(project=project, sweep=sweep, run_id=run_id)
+            
+            # Reformat model and trainer dicts as sets
+            model_dict, trainer_dict = {}, {}
+            for k in run_info['model'].keys():
+                model_dict[k] = str(run_info['model'][k])
+            for k in run_info['trainer'].keys():
+                trainer_dict[k] = str(run_info['trainer'][k])
+            model_dict = set(model_dict.items())
+            trainer_dict = set(trainer_dict.items())
+            info_dict = set([('run_id', run_id), ('sweep', sweep), ('steps', steps)])
+            run_dict = set.union(model_dict, trainer_dict, info_dict)
+            all_dicts.append(run_dict)
+            all_keys.append(set([x[0] for x in run_dict]))
+        except FileNotFoundError as e:
+            # print(f"Run {run_id} not found")
+            continue
 
 
     # Combine all sets, only keep keys that are different
@@ -153,12 +165,12 @@ def plot_learning_curve(data, x_value, y_value,
                         y_errs=None,
                         smoothing_value=1.0, x_title='Steps', y_title='Episode Reward', title='Learning Curve'):
 
-    selection = alt.selection_point(fields=['run_group'], bind='legend')
+    selection = alt.selection_point(fields=['group'], bind='legend')
     main_chart = alt.Chart(data, title=title).mark_line(opacity=0.2).encode(
         x=alt.X(f'{x_value}:Q', title=x_title),
         y=alt.Y(f'{y_value}:Q', title=y_title),
-        color=alt.Color('run_group:N'),
-        tooltip='run_group:N',
+        color=alt.Color('group:N'),
+        tooltip='group:N',
     ).add_params(
         selection
     )
@@ -168,8 +180,8 @@ def plot_learning_curve(data, x_value, y_value,
         frame=[smoothing_value, 0]).encode(
         x=alt.X(f'{x_value}:Q', title=x_title),
         y=alt.Y('rolling_mean:Q', title=y_title),
-        color=alt.Color('run_group:N'),
-        tooltip='run_group:N',
+        color=alt.Color('group:N'),
+        tooltip='group:N',
         opacity=alt.condition(selection, alt.value(1), alt.value(0.2))
     ).add_params(
         selection
@@ -186,8 +198,8 @@ def plot_learning_curve(data, x_value, y_value,
             x=alt.X(f'{x_value}:Q', title=x_title),
             y=alt.Y('y_min:Q'),
             y2=alt.Y2('y_max:Q'),
-            color=alt.Color('run_group:N'),
-            tooltip='run_group:N',
+            color=alt.Color('group:N'),
+            tooltip='group:N',
         )
         chart = error_chart + chart
 
@@ -286,10 +298,10 @@ def plot_scalars(metric, data, group_cols, chart_size, facet=None):
     st.dataframe(legend_table, hide_index=True)
     st.altair_chart(chart)
 
-def plot_videos(data, storage):
-    project_select = st.selectbox("Select Project", data['project'].unique())
-    sweep_select = st.selectbox("Select Sweep", data.query(f"project=='{project_select}'")['sweep'].unique())
-    run_select = st.selectbox("Select Run", data.query(f"project=='{project_select}' and sweep=='{sweep_select}'")['run_id'].unique())
+def plot_videos(data, storage, key_prefix='video'):
+    project_select = st.selectbox("Select Project", data['project'].unique(), key=f"{key_prefix}_project_select")
+    sweep_select = st.selectbox("Select Sweep", data.query(f"project=='{project_select}'")['sweep'].unique(), key=f"{key_prefix}_sweep_select")
+    run_select = st.selectbox("Select Run", data.query(f"project=='{project_select}' and sweep=='{sweep_select}'")['run_id'].unique(), key=f"{key_prefix}_run_select")
     evals = data.query(f"project=='{project_select}' and sweep=='{sweep_select}' and run_id=='{run_select}'")
     num_vids = evals.shape[0]
     vid_cols = st.columns(num_vids)
@@ -300,3 +312,88 @@ def plot_videos(data, storage):
         video = storage.load(filepath, filetype='bytesio')
         vid_cols[idv].video(data=video)
         vid_cols[idv].write(f"Eval Name: `{pretty_title(data_row['eval_name'])}`")
+
+
+def plot_chart(data, storage, key_prefix='chart'):
+    project_select = st.selectbox("Select Project", data['project'].unique(), key=f"{key_prefix}_project_select")
+    sweep_select = st.selectbox("Select Sweep", data.query(f"project=='{project_select}'")['sweep'].unique(), key=f"{key_prefix}_sweep_select")
+    run_select = st.selectbox("Select Run", data.query(f"project=='{project_select}' and sweep=='{sweep_select}'")['run_id'].unique(), key=f"{key_prefix}_run_select")
+    evals = data.query(f"project=='{project_select}' and sweep=='{sweep_select}' and run_id=='{run_select}'")
+    num_charts = evals.shape[0]
+    chart_cols = st.columns(num_charts)
+    for idc in range(num_charts):
+        data_row = evals.iloc[idc]
+        filepath = data_row['filepath']
+        filepath = filepath.split(storage.dir)[1].lstrip('/')
+        chart = storage.load(filepath, filetype='json')
+        st.vega_lite_chart(chart)
+
+def plot_rliable_metrics(data, storage, key_prefix='rewards_df'):
+    for idr in range(len(data)):
+        data_row = data.iloc[idr]
+        filepath = data_row['filepath']
+        df = pd.DataFrame.from_records(storage.load(filepath, filetype='json'))
+        df['name'] = data_row['group']
+        df['project'] = data_row['project']
+        df['sweep'] = data_row['sweep']
+        if idr == 0:
+            full_df = df
+        else:
+            full_df = pd.concat([full_df,df])
+    
+    sweeps = full_df['sweep'].unique()
+    projects = full_df['project'].unique()
+    n_trials = 30
+    n_reps = 10_000
+    min_score = 0.0
+    max_score = 1000.0
+
+    all_data = {}
+    sweep_data = np.zeros((len(projects), n_trials))
+    for sweep in sweeps:
+        for idp, project in enumerate(projects):
+            scores = full_df.query(f"sweep=='{sweep}' & project=='{project}'")['reward'].values
+            scores = (scores - min_score)/(max_score - min_score)
+            sweep_data[idp] = scores
+        all_data[sweep] = np.array(sweep_data)
+        
+
+    
+    aggregate_func = lambda x: np.array([
+    rliable_metrics.aggregate_median(x),
+    rliable_metrics.aggregate_iqm(x),
+    rliable_metrics.aggregate_mean(x),
+    rliable_metrics.aggregate_optimality_gap(x)])
+    
+    aggregate_scores, aggregate_score_cis = rly.get_interval_estimates(all_data, aggregate_func, 
+                                                                       reps=n_reps)
+    
+    fig, axes = plot_utils.plot_interval_estimates(
+    aggregate_scores, aggregate_score_cis,
+    metric_names=['Median', 'IQM', 'Mean', 'Optimality Gap'],
+    algorithms=sweeps, xlabel='Normalized Score')
+
+    st.pyplot(fig)
+
+    # Performance Profiles
+    perf_thresholds = np.linspace(0.0, 1.0, 50)
+    perf_profiles, perf_profiles_cis = rly.create_performance_profile(all_data, perf_thresholds)
+    perf_profile_fig, ax = plt.subplots(ncols=1, figsize=(7, 5))
+    ax = plot_utils.plot_performance_profiles(
+        perf_profiles, perf_thresholds,
+        performance_profile_cis=perf_profiles_cis,
+        colors=dict(zip(sweeps, sns.color_palette('colorblind'))),
+        xlabel=r'Normalized Score $(\tau)$',
+        ax=ax)
+    plt.legend()
+    st.pyplot(perf_profile_fig)
+
+    # # Probability of improvement
+    sweep_pairs = list(permutations(sweeps, 2))
+    pi_data = {}
+    for pair in sweep_pairs:
+        pi_data[f'{pair[0]}, {pair[1]}'] = (all_data[pair[0]], all_data[pair[1]])
+    average_probabilities, average_prob_cis = rly.get_interval_estimates(pi_data, rliable_metrics.probability_of_improvement, reps=2000)
+    pi_fig, ax = plt.subplots(figsize=(4,3))
+    axes = plot_utils.plot_probability_of_improvement(average_probabilities, average_prob_cis, ax=ax)
+    st.pyplot(pi_fig)

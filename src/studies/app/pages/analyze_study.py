@@ -124,7 +124,7 @@ else:
                 if isinstance(train_data, str):
                     train_data = json.loads(train_data)
                 train_data = pd.DataFrame(train_data)
-                train_data['run_group'] = run_group
+                train_data['group'] = run_group
                 all_train_data.append(train_data)
             except FileNotFoundError as e:
                 not_found_train_data.append(run_group)
@@ -133,7 +133,7 @@ else:
                 if isinstance(train_eval_data, str):
                     train_eval_data = json.loads(train_eval_data)
                 train_eval_data = pd.DataFrame(train_eval_data)
-                train_eval_data['run_group'] = run_group
+                train_eval_data['group'] = run_group
                 all_train_eval_data.append(train_eval_data)
             except FileNotFoundError as e:
                 not_found_train_eval_data.append(run_group)
@@ -176,21 +176,43 @@ else:
     st.header("Evaluation Metrics")
     for metric_name, metric in study.metrics.items():
             with st.expander(app_utils.pretty_title(metric_name), expanded=False) as container:
-                # Slider to select chart size
-                chart_size = st.slider("Chart Size", min_value=0.1, max_value=1.0, value=0.3,
-                                        key=f"chart_size_{metric_name}", format="")
-                chart_size = container_width*chart_size
-                # Get metric data
-                metric_data = study.metric_table(metric_name, limit=None)
-                metric_data = metric_data.merge(runs, on=['run_id', 'sweep', 'project'],how='right')
-                metric_data = metric_data.dropna(subset=['eval_name'])                        
-                # Average out data over the groups                        
-                # metric_data = app_utils.avg_over_group(metric_data)
-                # Plots
-                if metric_data.shape[0] > 0:
-                    st.subheader(app_utils.pretty_title(metric_name))
-                    if metric_name == 'observation_videos':
-                        app_utils.plot_videos(metric_data, storage=study.storage)
-                    else:
-                        facet = {'name': 'eval_name', 'columns': int(container_width//chart_size)}
-                        app_utils.plot_scalars(metric, metric_data, group_cols, chart_size, facet)
+                try:
+                    # Get metric data
+                    metric_data = study.metric_table(metric_name, limit=None)
+                    metric_data = metric_data.merge(runs, on=['run_id', 'sweep', 'project'],how='right')
+                    metric_data = metric_data.dropna(subset=['eval_name']) 
+
+
+                    # Slider to select chart size
+                    chart_size = st.slider("Chart Size", min_value=0.1, max_value=1.0, value=0.3,
+                                            key=f"chart_size_{metric_name}", format="")
+                    chart_size = container_width*chart_size
+
+                    # Average out data over the groups                        
+                    # metric_data = app_utils.avg_over_group(metric_data)
+                    # Plots
+                    if metric_data.shape[0] > 0:
+                        st.subheader(app_utils.pretty_title(metric_name))
+                        if metric_name == 'observation_videos':
+                            app_utils.plot_videos(metric_data, storage=study.storage, key_prefix=metric_name)
+                        elif metric_name in ['kmeans', 'tsne']:
+                            app_utils.plot_chart(metric_data, storage=study.storage, key_prefix=metric_name)
+                        elif metric_name in ['rewards_dataframe']:
+                            # Don't plot here since these are inter-run metrics
+                            pass
+                        else:
+                            facet = {'name': 'eval_name', 'columns': int(container_width//chart_size)}
+                            app_utils.plot_scalars(metric, metric_data, group_cols, chart_size, facet)
+                except Exception as e:
+                    st.error(f"Could not plot {metric_name}")
+                    st.error(e)
+    
+    # ## Rliable Metrics
+    st.header("RLiable Metrics")
+    inter_run_metrics = {}
+    for metric_name, metric in study.metrics.items():
+        if metric_name == 'rewards_dataframe':
+            metric_data = study.metric_table(metric_name, limit=None)
+            metric_data = metric_data.merge(runs, on=['run_id', 'sweep', 'project'],how='right')
+            metric_data = metric_data.dropna(subset=['eval_name'])
+            app_utils.plot_rliable_metrics(metric_data, study.storage)
