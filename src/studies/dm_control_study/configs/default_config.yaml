@@ -149,6 +149,7 @@ model:
   load_encoder: null
   num_filters: 32
   num_layers: 4
+  # New params
   decode_rewards_from_next_latent: true
   residual_actor: False
   use_schedulers: False
@@ -157,6 +158,13 @@ model:
   rew_min: 0.0 # For DMControl
   normalize_kernel: true
   kernel_type: gaussian
+  predict_inverse_dynamics: false
+  inverse_dynamics_lr: 0.0001
+  inverse_dynamics_loss_weight: 10.0
+  encoder_max_norm: false
+  intrinsic_reward: false
+  intrinsic_reward_max: 0.1
+  intrinsic_reward_scale: 1.0
 logger:
   project: ${..project.name}
   module_path: trainer.logger.Logger

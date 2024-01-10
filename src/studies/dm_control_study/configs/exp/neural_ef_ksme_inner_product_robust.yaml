@@ -1,0 +1,26 @@
+name: NeuralEFKSME_InnerProduct_Robust
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: neural_ef_ksme
+    encoder_type: pixel_l2
+    decoder_type: pixel_l2
+    kernel_type: inner_product
+    predict_inverse_dynamics: true
+    inverse_dynamics_lr: 0.0001
+    inverse_dynamics_loss_weight: 10.0
+    encoder_max_norm: true
+    intrinsic_reward: true
+    intrinsic_reward_max: 0.1
+    intrinsic_reward_scale: 1.0
+  trainer:
+    env:
+      encoder_type: pixel_l2
+    eval_env:
+      encoder_type: pixel_l2
+sweeper:
+  name: neural_ef_ksme_inner_product_robust
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}

@@ -1,0 +1,19 @@
+name: DBC_Robust
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: dbc
+    predict_inverse_dynamics: true
+    inverse_dynamics_lr: 0.0001
+    inverse_dynamics_loss_weight: 10.0
+    encoder_max_norm: true
+    intrinsic_reward: true
+    intrinsic_reward_max: 0.1
+    intrinsic_reward_scale: 1.0
+sweeper:
+  name: dbc_robust
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}
+
