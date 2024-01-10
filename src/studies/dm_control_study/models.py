@@ -81,3 +81,14 @@ class BisimModel(Model):
 
     def evaluation_step(self, batch, batch_idx):
         return {}
+    
+
+    def modify_experience(self, obs, action, curr_reward, reward, next_obs, terminated, truncated, info):
+        """
+        Modify experience before adding to replay buffer
+        """
+        if hasattr(self.model, 'modify_experience'):
+            obs, action, curr_reward, reward, next_obs, terminated, truncated, info = self.model.modify_experience(
+               obs, action, curr_reward, reward, next_obs, terminated, truncated, info
+            )
+        return obs, action, curr_reward, reward, next_obs, terminated, truncated, info

@@ -1,5 +1,6 @@
 from trainer.rl import RLTrainer
 from typing import Dict
+from trainer.utils import eval_mode
 
 class BisimRLTrainer(RLTrainer):
 
@@ -63,8 +64,26 @@ class BisimRLTrainer(RLTrainer):
                 'train/alpha/lr': self.model.model.log_alpha_optimizer.param_groups[0]['lr'],
                 'train/encoder/lr': self.model.model.encoder_optimizer.param_groups[0]['lr']
                 })
+
+
+            # log embedding norms
+            embedding_norm_log = last_log['encoder'].get('embedding_norm')
+            if embedding_norm_log is not None:
+                log_dict.update({
+                    'train/encoder/norm': embedding_norm_log
+                })
+
+            # Log inverse dynamics logs
+            inverse_dynamics_log = last_log['encoder'].get('inverse_dynamics_loss')
+            if inverse_dynamics_log is not None:
+                log_dict.update({
+                    'train/encoder/inverse_dynamics_loss': inverse_dynamics_log
+                })
+
+
             self.logger.log(log_dict=log_dict)
 
+            
 
             # self.logger.log(log_dict={'trainer_step': trainer_step,
             #                           'train/critic/loss':last_log['critic']['loss']})
@@ -98,3 +117,48 @@ class BisimRLTrainer(RLTrainer):
                 for ide, env_rew in enumerate(avg_env_episode_rewards):
                     self.logger.log(log_dict={'eval_step': int(trainer_step),
                                               f'eval/episode_reward/env_{ide}': float(env_rew)})
+                    
+
+    def collect_rollouts(self, obs, add_to_buffer=False):
+        # Set model to eval when collecting rollouts
+        with eval_mode(self.model):
+            # Get Action
+            if self.step < self.config['init_steps']:
+                action = self.env.action_space.sample()
+            else:
+                action = self.model.sample_action(obs, batched=self.env.is_vec_env)
+        
+            # Env Step
+            next_obs, reward, terminated, truncated, info = self.env.step(action)
+            curr_reward = self.reward
+
+            # Optionally allow modifying experience (e.g. adding auxilliary rewards)
+            obs, action, curr_reward, reward, next_obs, terminated, truncated, info = self.modify_experience(
+                obs, action, curr_reward, reward, next_obs, terminated, truncated, info
+            )
+            if add_to_buffer:
+                # TODO: Move this to after_epoch()
+                # Add to buffer: allow infinite bootstrap: don't store truncated as done    
+                self.replay_buffer.add(obs, action, curr_reward, reward, next_obs, terminated, 
+                                    batched=self.env.is_vec_env)
+
+            num_steps = self.env.num_envs
+
+        return {
+            'action': action,
+            'next_obs': next_obs,
+            'reward': reward,
+            'terminated': terminated,
+            'truncated': truncated,
+            'info': info,
+            'num_steps': num_steps
+        }
+    
+    def modify_experience(self, obs, action, curr_reward, reward, next_obs, terminated, truncated, info):
+
+        if hasattr(self.model, 'modify_experience'):
+            obs, action, curr_reward, reward, next_obs, terminated, truncated, info = self.model.modify_experience(
+               obs, action, curr_reward, reward, next_obs, terminated, truncated, info
+            )
+
+        return obs, action, curr_reward, reward, next_obs, terminated, truncated, info
