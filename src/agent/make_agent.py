@@ -51,7 +51,14 @@ def make_agent(obs_shape, action_shape, args, device):
             'residual_actor': args.residual_actor,
             'use_schedulers': args.use_schedulers,
             'encoder_softmax': args.encoder_softmax,
-            'distance_type': DISTANCE_TYPES.get(args.encoder_mode)
+            'distance_type': DISTANCE_TYPES.get(args.encoder_mode),
+            'predict_inverse_dynamics': args.predict_inverse_dynamics,
+            'inverse_dynamics_lr': args.inverse_dynamics_lr,
+            'inverse_dynamics_loss_weight': args.inverse_dynamics_loss_weight,
+            'encoder_max_norm': args.encoder_max_norm,
+            'intrinsic_reward': args.intrinsic_reward,
+            'intrinsic_reward_max': args.intrinsic_reward_max,
+            'intrinsic_reward_scale': args.intrinsic_reward_scale
         }
         if args.encoder_mode in ['dbc', 'mico']:
             # Baseline Bisim Agent

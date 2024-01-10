@@ -53,14 +53,7 @@ class BisimAgent(object):
         residual_actor=False,
         use_schedulers=True,
         encoder_softmax=False,
-        distance_type='bisim',
-        predict_inverse_dynamics=False,
-        inverse_dynamics_lr=1e-4,
-        inverse_dynamics_loss_weight=2.0,
-        encoder_max_norm=False,
-        intrinsic_reward=False,
-        intrinsic_reward_max=1.0,
-        intrinsic_reward_scale=1.0
+        distance_type='bisim'
     ):
         self.device = device
         self.discount = discount
@@ -75,22 +68,6 @@ class BisimAgent(object):
         self.decode_rewards_from_next_latent = decode_rewards_from_next_latent
         self.residual_actor = residual_actor
 
-        self.predict_inverse_dynamics = predict_inverse_dynamics
-        self.inverse_dynamics_loss_weight = inverse_dynamics_loss_weight
-
-        self.intrinsic_reward = intrinsic_reward
-        self.intrinsic_reward_max = intrinsic_reward_max
-        self.intrinsic_reward_scale = intrinsic_reward_scale
-
-        self.encoder_max_norm = None
-        if encoder_max_norm:
-            # From RobustDBC (https://arxiv.org/pdf/2110.14096.pdf)
-            # Assuming c_T = gamma, and R in [0,1]
-            c_R = 1.0
-            c_T = discount
-            self.encoder_max_norm = 0.5 * c_R / (1-c_T)
-
-
         self.distance_type = distance_type
         self.mico_beta = 0.1 # beta for MICO distance
 
@@ -98,28 +75,24 @@ class BisimAgent(object):
             self.actor = ActorResidual(
                 obs_shape, action_shape, hidden_dim, encoder_type,
                 encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-                num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax,
-                encoder_max_norm=self.encoder_max_norm
+                num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
             ).to(device)
         else:
             self.actor = Actor(
                 obs_shape, action_shape, hidden_dim, encoder_type,
                 encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-                num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax,
-                encoder_max_norm=self.encoder_max_norm
+                num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
             ).to(device)
 
 
         self.critic = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax,
-                encoder_max_norm=self.encoder_max_norm
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
         ).to(device)
 
         self.critic_target = Critic(
             obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax,
-                encoder_max_norm=self.encoder_max_norm
+            encoder_feature_dim, num_layers, num_filters, encoder_stride, encoder_softmax=encoder_softmax
         ).to(device)
 
         self.critic_target.load_state_dict(self.critic.state_dict())
@@ -167,30 +140,24 @@ class BisimAgent(object):
             self.critic.encoder.parameters(), lr=encoder_lr
         )
 
-        # Set up inverse dynamics network and optimizer
-        if self.predict_inverse_dynamics:
-            self.inverse_dynamics_predictor = self.setup_inverse_dynamics_predictor(encoder_feature_dim, 
-                                                                                    action_shape)
-            self.inverse_dynamics_optimizer = torch.optim.Adam( self.inverse_dynamics_predictor.parameters(),
-                                                    lr=inverse_dynamics_lr, weight_decay = 1e-5 )
-
-
         # scheduler_kwargs:
         scheduler_step_size = 1000
         scheduler_gamma = 0.99
 
         self.actor_scheduler = torch.optim.lr_scheduler.StepLR(self.actor_optimizer, 
                                                             scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+        
         self.critic_scheduler = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, 
                                                                 scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+        
         self.log_alpha_scheduler = torch.optim.lr_scheduler.StepLR(self.log_alpha_optimizer, 
                                                                 scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+        
         self.decoder_scheduler = torch.optim.lr_scheduler.StepLR(self.decoder_optimizer, 
                                                             scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
+
         self.encoder_scheduler = torch.optim.lr_scheduler.StepLR(self.encoder_optimizer, 
                                                                 scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
-        self.inverse_dynamics_scheduler = torch.optim.lr_scheduler.StepLR(self.inverse_dynamics_optimizer, 
-                                                                          scheduler_step_size, gamma=scheduler_gamma) if use_schedulers else None
 
 
         self.train()
@@ -330,24 +297,6 @@ class BisimAgent(object):
 
         return output_dict
 
-    def update_inverse_dynamics(self, obs, action, next_obs, L=None, step=None):
-        """
-        Adapted from https://github.com/metekemertas/RobustBisimulation/tree/main
-        based on https://arxiv.org/pdf/2110.14096.pdf
-        """
-        # B, nA = action.shape
-        #assert nA == 1 -> beware of action scale differences between dims
-        # Get encodings
-        h      = self.critic.encoder(obs) # Encoding of current observation
-        next_h = self.critic.encoder(next_obs) # Encoding of next observation
-        # Predict action
-        pred_action = self.inverse_dynamics_predictor( torch.cat([ h, next_h ], dim = -1) )
-        assert pred_action.shape == action.shape
-        loss = (action - pred_action).abs().mean()
-        loss_dict = {
-            'inverse_dynamics_loss': loss.item()
-        }
-        return loss, loss_dict
 
     def update_encoder(self, obs, action, reward, L=None, step=None, next_obs=None):
         """
@@ -486,21 +435,11 @@ class BisimAgent(object):
         transition_reward_loss, transition_update_dict = self.update_transition_reward_model(obs, action, next_obs, reward, L, step)
         encoder_loss, encoder_update_dict = self.update_encoder(obs, action, reward, L, step, next_obs=next_obs)
         total_loss = self.bisim_coef * encoder_loss + transition_reward_loss
-
-        if self.predict_inverse_dynamics:
-            inverse_dynamics_loss, inverse_dynamics_dict = self.update_inverse_dynamics(obs, action, next_obs, L, step)
-            total_loss = total_loss + self.inverse_dynamics_loss_weight * inverse_dynamics_loss
-            encoder_update_dict.update(inverse_dynamics_dict)
-            self.inverse_dynamics_optimizer.zero_grad()
-
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         total_loss.backward()
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
-        
-        if self.predict_inverse_dynamics:
-            self.inverse_dynamics_optimizer.step()
 
         actor_and_alpha_update_dict = None
         if step % self.actor_update_freq == 0:
@@ -529,8 +468,6 @@ class BisimAgent(object):
             self.decoder_scheduler.step()
         if self.encoder_scheduler is not None:
             self.encoder_scheduler.step()
-        if self.inverse_dynamics_scheduler is not None:
-            self.inverse_dynamics_scheduler.step()
 
         return {
             'critic': critic_update_dict,
@@ -640,45 +577,3 @@ class BisimAgent(object):
         self.reward_decoder = self.reward_decoder.to(device=device)
         self.log_alpha = self.log_alpha.to(device=device)
         return self
-    
-
-    def setup_inverse_dynamics_predictor(self, phi_dim, action_shape, hidden_layers = None):
-        """
-        From Kemertas et al (Neurips, 2021) https://github.com/metekemertas/RobustBisimulation/tree/main
-        Kemertes et al propose inverse dynamics prediction as a way to prevent embedding collapse
-        (https://arxiv.org/pdf/2110.14096.pdf)
-        """
-
-        if hidden_layers is None:
-            hidden_layers = (256, 128)
-
-        # ~Similar to Pathak et al architecture
-        return nn.Sequential( # Trained 
-            nn.Linear(2 * phi_dim, hidden_layers[0]),
-            nn.ELU(),
-            nn.Linear(hidden_layers[0], hidden_layers[1]),
-            nn.ELU(),
-            nn.Linear(hidden_layers[1], *action_shape)
-            ).to(self.device)
-
-    def modify_experience(self, obs, action, curr_reward, reward, next_obs, terminated, truncated, info):
-        """
-        Modify experience before adding to replay buffer.
-        Optionally, compute intrinsic reward and add to reward.
-        NOTE: No need to update curr_reward since curr_reward was already adjusted in the prior step
-        """
-        if self.intrinsic_reward:
-            with torch.no_grad():
-                # Get encodings for current observations
-                h = self.critic.encoder(torch.from_numpy(obs).to(self.device))
-                # Predict the next latent state
-                pred_next_latent_mu, _ = self.transition_model(
-                    torch.cat([h, torch.from_numpy(action).to(self.device)], dim=1)
-                    )
-                # Get the actual next latent
-                next_h = self.critic.encoder(torch.from_numpy(next_obs).to(self.device))
-                # intrinsic reward is the error in predicting the next latent
-                intrinsic_reward = 0.5 * (pred_next_latent_mu - next_h).pow(2).mean(-1).detach().clamp(max=self.intrinsic_reward_max)    
-                reward = reward + intrinsic_reward.cpu().numpy()*self.intrinsic_reward_scale
-
-        return obs, action, curr_reward, reward, next_obs, terminated, truncated, info

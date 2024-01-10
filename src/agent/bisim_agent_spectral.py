@@ -46,6 +46,8 @@ class SpectralBisimAgent(BisimAgent):
 
         loss, loss_dict = self._spectral_loss(W, h)
         
+        loss_dict['embedding_norm'] = torch.norm(h, dim=1).mean().item()
+
         return loss, loss_dict    
         
 

@@ -43,6 +43,8 @@ class KSMEBisimAgent(BisimAgent):
 
         output_dict['encoder_loss'] = loss.item()
 
+        output_dict['embedding_norm'] = torch.norm(h, dim=1).mean().item()
+
         return loss, output_dict
    
 
@@ -81,6 +83,8 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
                 kernel = D_sqrt @ kernel @ D_sqrt
 
         loss, loss_dict = self._spectral_loss(kernel, h)
+
+        loss_dict['embedding_norm'] = torch.norm(h, dim=1).mean().item()
 
         return loss, loss_dict
     

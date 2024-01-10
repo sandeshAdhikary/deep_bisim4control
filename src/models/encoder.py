@@ -46,6 +46,9 @@ class PixelEncoder(nn.Module):
         self.fc = nn.Linear(out_dim, self.feature_dim)
         self.ln = nn.LayerNorm(self.feature_dim)
 
+
+        self.max_norm = kwargs.get('max_norm', None)
+
         self.outputs = dict()
 
     def reparameterize(self, mu, logstd):
@@ -83,6 +86,10 @@ class PixelEncoder(nn.Module):
         if self.output_softmaxed:
             out = torch.softmax(out, dim=-1)
         
+        if self.max_norm:
+            norm_to_max = (out.norm(dim=-1) / self.max_norm).clamp(min=1).unsqueeze(-1)
+            out = out / norm_to_max
+
         return out
 
     def copy_conv_weights_from(self, source):
@@ -139,112 +146,112 @@ class PixelEncoderL2Norm(PixelEncoder):
 
 
 
-class PixelEncoderCarla096(PixelEncoder):
-    """Convolutional encoder of pixels observations."""
-    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1, **kwargs):
-        super(PixelEncoder, self).__init__()
+# class PixelEncoderCarla096(PixelEncoder):
+#     """Convolutional encoder of pixels observations."""
+#     def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1, **kwargs):
+#         super(PixelEncoder, self).__init__()
 
-        assert len(obs_shape) == 3
+#         assert len(obs_shape) == 3
 
-        self.feature_dim = feature_dim
-        self.num_layers = num_layers
+#         self.feature_dim = feature_dim
+#         self.num_layers = num_layers
 
-        self.convs = nn.ModuleList(
-            [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
-        )
-        for i in range(num_layers - 1):
-            self.convs.append(nn.Conv2d(num_filters, num_filters, 3, stride=stride))
+#         self.convs = nn.ModuleList(
+#             [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
+#         )
+#         for i in range(num_layers - 1):
+#             self.convs.append(nn.Conv2d(num_filters, num_filters, 3, stride=stride))
 
-        out_dims = 100  # if defaults change, adjust this as needed
-        self.fc = nn.Linear(num_filters * out_dims, self.feature_dim)
-        self.ln = nn.LayerNorm(self.feature_dim)
+#         out_dims = 100  # if defaults change, adjust this as needed
+#         self.fc = nn.Linear(num_filters * out_dims, self.feature_dim)
+#         self.ln = nn.LayerNorm(self.feature_dim)
 
-        self.outputs = dict()
-
-
-class PixelEncoderCarla098(PixelEncoder):
-    """Convolutional encoder of pixels observations."""
-    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1, **kwargs):
-        super(PixelEncoder, self).__init__()
-
-        assert len(obs_shape) == 3
-
-        self.feature_dim = feature_dim
-        self.num_layers = num_layers
-
-        self.convs = nn.ModuleList()
-        self.convs.append(nn.Conv2d(obs_shape[0], 64, 5, stride=2))
-        self.convs.append(nn.Conv2d(64, 128, 3, stride=2))
-        self.convs.append(nn.Conv2d(128, 256, 3, stride=2))
-        self.convs.append(nn.Conv2d(256, 256, 3, stride=2))
-
-        out_dims = 56  # 3 cameras
-        # out_dims = 100  # 5 cameras
-        self.fc = nn.Linear(256 * out_dims, self.feature_dim)
-        self.ln = nn.LayerNorm(self.feature_dim)
-
-        self.outputs = dict()
+#         self.outputs = dict()
 
 
-class VectorEncoder(nn.Module):
-    """
-    Simple NN (non-convolutional) encoder for observations
-    """
-    def __init__(self, obs_shape, feature_dim, num_layers=None, num_filters=None, stride=None, **kwargs):
-        super().__init__()
+# class PixelEncoderCarla098(PixelEncoder):
+#     """Convolutional encoder of pixels observations."""
+#     def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1, **kwargs):
+#         super(PixelEncoder, self).__init__()
 
-        assert len(obs_shape) == 1
+#         assert len(obs_shape) == 3
 
-        self.input_shape = obs_shape[0]
-        self.feature_dim = feature_dim
-        self.num_layers = 2
+#         self.feature_dim = feature_dim
+#         self.num_layers = num_layers
 
-        self.fc = nn.Sequential(
-            nn.Linear(self.input_shape, 4*self.input_shape),
-            nn.ReLU(),
-            nn.Linear(4*self.input_shape, 128),
-            nn.ReLU(),
-        )
-        self.output_layer = nn.Linear(128, self.feature_dim)
-        self.ln = nn.LayerNorm(self.feature_dim)
+#         self.convs = nn.ModuleList()
+#         self.convs.append(nn.Conv2d(obs_shape[0], 64, 5, stride=2))
+#         self.convs.append(nn.Conv2d(64, 128, 3, stride=2))
+#         self.convs.append(nn.Conv2d(128, 256, 3, stride=2))
+#         self.convs.append(nn.Conv2d(256, 256, 3, stride=2))
 
-        self.outputs = dict()
+#         out_dims = 56  # 3 cameras
+#         # out_dims = 100  # 5 cameras
+#         self.fc = nn.Linear(256 * out_dims, self.feature_dim)
+#         self.ln = nn.LayerNorm(self.feature_dim)
+
+#         self.outputs = dict()
 
 
-    def forward(self, obs_input, detach=False):
-        out = self.fc(obs_input)
-        out = self.output_layer(out)
-        out = self.ln(out)
-        #TODO: The paper says to use a tanh activation here, but the code doesn't
-        # out = torch.tanh(out)
-        return out
+# class VectorEncoder(nn.Module):
+#     """
+#     Simple NN (non-convolutional) encoder for observations
+#     """
+#     def __init__(self, obs_shape, feature_dim, num_layers=None, num_filters=None, stride=None, **kwargs):
+#         super().__init__()
+
+#         assert len(obs_shape) == 1
+
+#         self.input_shape = obs_shape[0]
+#         self.feature_dim = feature_dim
+#         self.num_layers = 2
+
+#         self.fc = nn.Sequential(
+#             nn.Linear(self.input_shape, 4*self.input_shape),
+#             nn.ReLU(),
+#             nn.Linear(4*self.input_shape, 128),
+#             nn.ReLU(),
+#         )
+#         self.output_layer = nn.Linear(128, self.feature_dim)
+#         self.ln = nn.LayerNorm(self.feature_dim)
+
+#         self.outputs = dict()
+
+
+#     def forward(self, obs_input, detach=False):
+#         out = self.fc(obs_input)
+#         out = self.output_layer(out)
+#         out = self.ln(out)
+#         #TODO: The paper says to use a tanh activation here, but the code doesn't
+#         # out = torch.tanh(out)
+#         return out
     
-    def copy_conv_weights_from(self, source):
-        #TODO: This was originally meant for pixel encoders; Currently equating conv_layers -> fc_layers for vec encoder
-        # tie everything except the last output layer
-        for i, source_layer in enumerate(source.fc):
-            if isinstance(source_layer, nn.modules.linear.Linear):
-                tie_weights(src=source_layer, trg=self.fc[i])
+#     def copy_conv_weights_from(self, source):
+#         #TODO: This was originally meant for pixel encoders; Currently equating conv_layers -> fc_layers for vec encoder
+#         # tie everything except the last output layer
+#         for i, source_layer in enumerate(source.fc):
+#             if isinstance(source_layer, nn.modules.linear.Linear):
+#                 tie_weights(src=source_layer, trg=self.fc[i])
 
-    def log(self, L, step, log_freq):
-        pass
+#     def log(self, L, step, log_freq):
+#         pass
 
 
-class IdentityEncoder(nn.Module):
-    def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride, **kwargs):
-        super().__init__()
+# class IdentityEncoder(nn.Module):
+#     def __init__(self, obs_shape, feature_dim, num_layers, num_filters, stride, **kwargs):
+#         super().__init__()
 
-        assert len(obs_shape) == 1
-        self.feature_dim = obs_shape[0]
+#         assert len(obs_shape) == 1
+#         self.feature_dim = obs_shape[0]
 
-    def forward(self, obs, detach=False):
-        return obs
+#     def forward(self, obs, detach=False):
+#         return obs
 
-    def copy_conv_weights_from(self, source):
-        pass
+#     def copy_conv_weights_from(self, source):
+#         pass
 
-    def log(self, L, step, log_freq):
-        pass
+#     def log(self, L, step, log_freq):
+#         pass
 
 
 ##### Encoder with clusters
@@ -344,13 +351,13 @@ class IdentityEncoder(nn.Module):
 _AVAILABLE_ENCODERS = {'pixel': PixelEncoder,
                        'pixel_l2': PixelEncoderL2Norm, 
                     #    'pixel_cluster': ClusterPixelEncoder,
-                       'pixelCarla096': PixelEncoderCarla096,
-                    #    'pixelCarla096_cluster': ClusterPixelEncoderCarla096,
-                       'pixelCarla098': PixelEncoderCarla098,
-                    #    'pixelCarla098_cluster': ClusterPixelEncoderCarla098,
-                       'identity': IdentityEncoder,
-                    #    'identity_cluster': ClusterIdentityEncoder,
-                       'vector': VectorEncoder,
+                    #    'pixelCarla096': PixelEncoderCarla096,
+                    # #    'pixelCarla096_cluster': ClusterPixelEncoderCarla096,
+                    #    'pixelCarla098': PixelEncoderCarla098,
+                    # #    'pixelCarla098_cluster': ClusterPixelEncoderCarla098,
+                    #    'identity': IdentityEncoder,
+                    # #    'identity_cluster': ClusterIdentityEncoder,
+                    #    'vector': VectorEncoder,
                     #    'vector_cluster': ClusterVectorEncoder
                        }
 
@@ -373,6 +380,7 @@ def make_encoder(
     # If output_dim not specified, assume it is feature_dim
     output_dim = output_dim or feature_dim
     output_softmaxed=kwargs.get('output_softmaxed', False)
+    max_norm=kwargs.get('max_norm', None)
 
     assert encoder_type in _AVAILABLE_ENCODERS
 
@@ -380,10 +388,10 @@ def make_encoder(
         # Set cluster dim to be output dim
         return _CLUSTER_ENCODERS[encoder_type](
                 obs_shape, feature_dim, num_layers, num_filters, stride, num_clusters=output_dim,
-                output_softmaxed=output_softmaxed
+                output_softmaxed=output_softmaxed, max_norm=max_norm
             )
     else:
         return _AVAILABLE_ENCODERS[encoder_type](
             obs_shape, feature_dim, num_layers, num_filters, stride,
-            output_softmaxed=output_softmaxed
+            output_softmaxed=output_softmaxed, max_norm=max_norm
         )
