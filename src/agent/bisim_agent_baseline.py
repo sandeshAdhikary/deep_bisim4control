@@ -60,7 +60,9 @@ class BisimAgent(object):
         encoder_max_norm=False,
         intrinsic_reward=False,
         intrinsic_reward_max=1.0,
-        intrinsic_reward_scale=1.0
+        intrinsic_reward_scale=1.0,
+        trunk_regularization=False,
+        trunk_regularization_coeff=1e-3
     ):
         self.device = device
         self.discount = discount
@@ -81,6 +83,9 @@ class BisimAgent(object):
         self.intrinsic_reward = intrinsic_reward
         self.intrinsic_reward_max = intrinsic_reward_max
         self.intrinsic_reward_scale = intrinsic_reward_scale
+
+        self.trunk_regularization = trunk_regularization
+        self.trunk_regularization_coeff = trunk_regularization_coeff
 
         self.encoder_max_norm = None
         if encoder_max_norm:
@@ -273,6 +278,27 @@ class BisimAgent(object):
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         
+        # Trunk regularization
+        if (self.trunk_regularization):
+            if self.critic.encoder.eigvals is not None:
+                # Use eigenvalues if available
+                reg_weights = self.actor.encoder.eigvals.detach()
+            else:
+                # else, uniform weights
+                reg_weights = torch.ones(self.critic.encoder.feature_dim).to(self.device)
+            # Regularization for Q1
+            W_1 = self.critic.Q1.trunk[0].weight # Weights of first linear layer after encoder
+            W_1 = W_1[:,:self.critic.encoder.feature_dim] # Ignore the action dimensions
+            trunk_reg_1 = torch.abs(W_1**2 @ (1/(reg_weights + 1e-8))).mean()
+            # Regularization for Q2
+            W_2 = self.critic.Q2.trunk[0].weight # Weights of first linear layer after encoder
+            W_2 = W_2[:,:self.critic.encoder.feature_dim] # Ignore the action dimensions
+            trunk_reg_2 = torch.abs(W_2**2 @ (1/(reg_weights + 1e-8))).mean()
+            # Avearage the two regularization terms
+            trunk_reg = (trunk_reg_1+trunk_reg_2)/2.0
+            critic_loss += self.trunk_regularization_coeff*trunk_reg
+            output_dict['trunk_reg'] = trunk_reg.item()
+
         output_dict['loss'] = critic_loss.item()
         if L is not None:
             L.log('train_critic/loss', critic_loss, step)
@@ -299,16 +325,35 @@ class BisimAgent(object):
 
         actor_Q = torch.min(actor_Q1, actor_Q2)
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
-        output_dict['loss'] = actor_loss
+
+        # Spectral regularization
+        if self.trunk_regularization:
+            if self.actor.encoder.eigvals is not None:
+                # Use eigenvalues if available
+                reg_weights = self.actor.encoder.eigvals.detach()
+            else:
+                reg_weights = torch.ones(self.actor.encoder.feature_dim).to(self.device)
+            W = self.actor.trunk[0].weight # Weights of first linear layer after encoder
+            trunk_reg = torch.abs(W**2 @ (1/(reg_weights + 1e-8))).mean()
+            actor_loss += self.trunk_regularization_coeff*trunk_reg
+            output_dict['trunk_reg'] = trunk_reg.item()
+
+        output_dict['loss'] = actor_loss.item()
         output_dict['target_entropy'] = self.target_entropy
+
+
         if L is not None:
             L.log('train_actor/loss', actor_loss, step)
             L.log('train_actor/target_entropy', self.target_entropy, step)
+
+
         entropy = 0.5 * log_std.shape[1] * (1.0 + np.log(2 * np.pi)
                                             ) + log_std.sum(dim=-1)
         output_dict['entropy'] = entropy.mean().item()
         if L is not None:
             L.log('train_actor/entropy', entropy.mean(), step)
+
+
 
         # optimize the actor
         self.actor_optimizer.zero_grad()

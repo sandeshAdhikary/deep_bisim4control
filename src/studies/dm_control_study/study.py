@@ -8,7 +8,6 @@ from copy import deepcopy
 def main(cfg: DictConfig) -> (DictConfig, DictConfig):
 
     # Resolve the config
-    # cfg = DictConfig(OmegaConf.to_container(cfg, resolve=True))
     cfg = DictConfig(OmegaConf.to_container(cfg, resolve=False))
 
     # Get the composed config
@@ -23,7 +22,7 @@ def main(cfg: DictConfig) -> (DictConfig, DictConfig):
     # Define study
     study = RLStudy(study_config)
     
-    # Get the experiment mode
+    # Get the experiment mode: train/sweep/evaluate
     exp_mode = exp_config['exp_mode']
     exp_config.__delattr__('exp_mode')
 

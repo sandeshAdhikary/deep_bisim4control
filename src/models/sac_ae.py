@@ -240,6 +240,7 @@ class Critic(nn.Module):
         self.Q2 = QFunction(
             encoder_output_dim, action_shape[0], hidden_dim
         )
+        
 
         self.outputs = dict()
         self.apply(weight_init)

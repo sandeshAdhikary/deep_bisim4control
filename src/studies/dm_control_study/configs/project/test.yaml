@@ -2,6 +2,9 @@ name: test
 desc: |
   Test Project
 overrides:
+  model:
+    trunk_regularization: false
+    encoder_feature_dim: 121
   trainer:
     eval_freq: 99
     log_epoch_freq: 10

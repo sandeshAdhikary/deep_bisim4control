@@ -107,6 +107,10 @@ class SpectralBisimAgent(BisimAgent):
 
 class NeuralEFBisimAgent(SpectralBisimAgent):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
     def _spectral_loss(self, W, features):
         """
         W : kernel matrix (weights matrix)
@@ -122,6 +126,24 @@ class NeuralEFBisimAgent(SpectralBisimAgent):
         psis_K_psis = psis_x.T @ K_psis
         psisSG_K_psis = psis_x.T.clone().detach() @ K_psis
 
+        # Keep track of the eigenvalues
+        if hasattr(self.critic.encoder, 'eigvals'):
+            with torch.no_grad():
+                eigvals = psis_K_psis.diag()/(batch_size**2)
+                if self.critic.encoder.num_eigval_calls == 0:
+                    self.critic.encoder.eigvals.copy_(eigvals.data)
+                    self.actor.encoder.eigvals.copy_(eigvals.data)
+                else:
+                    self.critic.encoder.eigvals.mul(self.critic.encoder.eigval_momentum).add_(
+                        eigvals.data, alpha = 1-self.critic.encoder.eigval_momentum
+                    )
+                    self.actor.encoder.eigvals.mul(self.actor.encoder.eigval_momentum).add_(
+                        eigvals.data, alpha = 1-self.actor.encoder.eigval_momentum
+                    )
+                self.critic.encoder.num_eigval_calls += 1
+                self.actor.encoder.num_eigval_calls += 1
+                loss_dict['eigenvalues'] = self.actor.encoder.eigvals.detach().cpu().numpy()
+
         # The diagonal term
         loss_ii = torch.diag(psis_K_psis)
         # The off diagonal terms
@@ -134,5 +156,6 @@ class NeuralEFBisimAgent(SpectralBisimAgent):
         loss_dict['dist_loss'] = -loss_ii.detach().sum().item()/batch_size**2 # negative since we're minimizing
         loss_dict['ortho_loss'] =  loss_ij.detach().sum().item()/batch_size**2 # positive since we're minimizing
         loss_dict['encoder_loss'] = loss.detach().item()
+        
 
         return loss, loss_dict

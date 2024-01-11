@@ -39,6 +39,11 @@ class BisimRLTrainer(RLTrainer):
                 'trainer_step': trainer_step,
                 'train/critic/loss':last_log['critic']['loss']
                 }
+            if last_log['critic'].get('trunk_reg') is not None:
+                log_dict.update({
+                    'train/critic/trunk_reg': last_log['critic']['trunk_reg']
+                })
+
             # Log actor and alpha
             if last_log['actor_and_alpha'] is not None:
                 log_dict.update({
@@ -48,6 +53,12 @@ class BisimRLTrainer(RLTrainer):
                     'train/alpha/loss':last_log['actor_and_alpha']['alpha_loss'],
                     'train/alpha/value':last_log['actor_and_alpha']['alpha_value']
                     })
+                if last_log['actor_and_alpha'].get('trunk_reg') is not None:
+                    log_dict.update({
+                        'train/actor/trunk_reg': last_log['actor_and_alpha']['trunk_reg']
+                    })
+
+
             # log encoder
             log_dict['train/encoder/loss'] = last_log['encoder']['encoder_loss']
             ortho_loss = last_log['encoder'].get('ortho_loss')
@@ -83,31 +94,17 @@ class BisimRLTrainer(RLTrainer):
 
             self.logger.log(log_dict=log_dict)
 
-            
+            # Log eigenvalues
+            if last_log['encoder'].get('eigenvalues') is not None:
+                self.logger.log_linechart(
+                    key = 'train/encoder/eigenvalues',
+                    data = {
+                        'title': 'Eigenvalues',
+                        'x': [range(len(last_log['encoder']['eigenvalues']))],
+                        'y': [last_log['encoder']['eigenvalues']],
+                    }
+                )
 
-            # self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                           'train/critic/loss':last_log['critic']['loss']})
-            # if last_log['actor_and_alpha'] is not None:
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/actor/loss':last_log['actor_and_alpha']['loss']})
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/actor/target_entropy':last_log['actor_and_alpha']['target_entropy']})
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/actor/entropy':last_log['actor_and_alpha']['entropy']})
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/alpha/loss':last_log['actor_and_alpha']['alpha_loss']})
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/alpha/value':last_log['actor_and_alpha']['alpha_value']})
-            # self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                           'train/encoder/loss':last_log['encoder']['encoder_loss']})
-            # ortho_loss = last_log['encoder'].get('ortho_loss')
-            # if ortho_loss is not None:
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/encoder/ortho_loss':ortho_loss})
-            # dist_loss = last_log['encoder'].get('dist_loss')
-            # if dist_loss is not None:
-            #     self.logger.log(log_dict={'trainer_step': trainer_step,
-            #                             'train/encoder/dist_loss':dist_loss})
         if len(self.eval_log) >= 1:
             last_log = self.eval_log[-1]['log']
             trainer_step = self.eval_log[-1]['step']

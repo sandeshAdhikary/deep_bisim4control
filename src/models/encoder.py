@@ -124,6 +124,12 @@ class PixelEncoderL2Norm(PixelEncoder):
         self.register_buffer('eigennorm', torch.ones(self.feature_dim))
         self.register_buffer('num_calls', torch.Tensor([0]))
 
+        if kwargs.get('track_eigvals', True):
+            # To keep track of eigenvalues
+            self.register_buffer('eigvals', torch.ones(self.feature_dim))
+            self.register_buffer('num_eigval_calls', torch.Tensor([0]))
+            self.eigval_momentum = 0.9
+
     def forward(self, obs_input, detach=False):
         out = super().forward(obs_input, detach)
         

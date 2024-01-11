@@ -78,7 +78,7 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
             kernel = reward_sim + self.discount*transition_sim
 
             if self.normalize_kernel:
-                D_sqrt = torch.diag(torch.sum(kernel, dim=1))
+                D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
                 #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
                 kernel = D_sqrt @ kernel @ D_sqrt
 
@@ -113,6 +113,25 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
         K_psis = kernel @ psis_x
         psis_K_psis = psis_x.T @ K_psis
         psisSG_K_psis = psis_x.T.clone().detach() @ K_psis
+
+        # Keep track of the eigenvalues
+        if hasattr(self.critic.encoder, 'eigvals'):
+            with torch.no_grad():
+                eigvals = psis_K_psis.diag()/(batch_size**2)
+                if self.critic.encoder.num_eigval_calls == 0:
+                    self.critic.encoder.eigvals.copy_(eigvals.data)
+                    self.actor.encoder.eigvals.copy_(eigvals.data)
+                else:
+                    self.critic.encoder.eigvals.mul(self.critic.encoder.eigval_momentum).add_(
+                        eigvals.data, alpha = 1-self.critic.encoder.eigval_momentum
+                    )
+                    self.actor.encoder.eigvals.mul(self.actor.encoder.eigval_momentum).add_(
+                        eigvals.data, alpha = 1-self.actor.encoder.eigval_momentum
+                    )
+                self.critic.encoder.num_eigval_calls += 1
+                self.actor.encoder.num_eigval_calls += 1
+                loss_dict['eigenvalues'] = self.actor.encoder.eigvals.detach().cpu().numpy()
+
 
         # The diagonal term
         loss_ii = torch.diag(psis_K_psis)

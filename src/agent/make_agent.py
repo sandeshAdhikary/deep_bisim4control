@@ -58,7 +58,9 @@ def make_agent(obs_shape, action_shape, args, device):
             'encoder_max_norm': args.encoder_max_norm,
             'intrinsic_reward': args.intrinsic_reward,
             'intrinsic_reward_max': args.intrinsic_reward_max,
-            'intrinsic_reward_scale': args.intrinsic_reward_scale
+            'intrinsic_reward_scale': args.intrinsic_reward_scale,
+            'trunk_regularization': args.trunk_regularization,
+            'trunk_regularization_coeff': args.trunk_regularization_coeff
         }
         if args.encoder_mode in ['dbc', 'mico']:
             # Baseline Bisim Agent
