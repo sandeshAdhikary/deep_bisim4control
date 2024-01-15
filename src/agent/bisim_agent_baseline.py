@@ -282,18 +282,23 @@ class BisimAgent(object):
         if (self.trunk_regularization):
             if self.critic.encoder.eigvals is not None:
                 # Use eigenvalues if available
-                reg_weights = self.actor.encoder.eigvals.detach()
+                reg_weights = self.critic.encoder.eigvals.detach()
             else:
                 # else, uniform weights
                 reg_weights = torch.ones(self.critic.encoder.feature_dim).to(self.device)
+
+            bandwidth = 1./(2*torch.median(reg_weights))
+            bandwidth = bandwidth if bandwidth > 0 else 1.0
+            reg_weights = torch.exp(-bandwidth*reg_weights) # penalize smaller eigenvalues
+            
             # Regularization for Q1
             W_1 = self.critic.Q1.trunk[0].weight # Weights of first linear layer after encoder
             W_1 = W_1[:,:self.critic.encoder.feature_dim] # Ignore the action dimensions
-            trunk_reg_1 = torch.abs(W_1**2 @ (1/(reg_weights + 1e-8))).mean()
+            trunk_reg_1 = torch.abs(W_1**2 @ reg_weights).mean()
             # Regularization for Q2
             W_2 = self.critic.Q2.trunk[0].weight # Weights of first linear layer after encoder
             W_2 = W_2[:,:self.critic.encoder.feature_dim] # Ignore the action dimensions
-            trunk_reg_2 = torch.abs(W_2**2 @ (1/(reg_weights + 1e-8))).mean()
+            trunk_reg_2 = torch.abs(W_2**2 @ reg_weights).mean()
             # Avearage the two regularization terms
             trunk_reg = (trunk_reg_1+trunk_reg_2)/2.0
             critic_loss += self.trunk_regularization_coeff*trunk_reg
@@ -333,8 +338,13 @@ class BisimAgent(object):
                 reg_weights = self.actor.encoder.eigvals.detach()
             else:
                 reg_weights = torch.ones(self.actor.encoder.feature_dim).to(self.device)
+            bandwidth = 1./(2*torch.median(reg_weights))
+            bandwidth = bandwidth if bandwidth > 0 else 1.0
+            reg_weights = torch.exp(-bandwidth*reg_weights) # penalize smaller eigenvalues
+            
             W = self.actor.trunk[0].weight # Weights of first linear layer after encoder
-            trunk_reg = torch.abs(W**2 @ (1/(reg_weights + 1e-8))).mean()
+
+            trunk_reg = torch.abs(W**2 @ reg_weights).mean()
             actor_loss += self.trunk_regularization_coeff*trunk_reg
             output_dict['trunk_reg'] = trunk_reg.item()
 

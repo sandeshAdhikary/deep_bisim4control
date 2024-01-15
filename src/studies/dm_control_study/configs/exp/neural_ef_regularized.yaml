@@ -1,19 +1,20 @@
-name: NeuralEFKSME_InnerProduct
+name: NeuralEF
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: neural_ef_ksme
+    encoder_mode: neural_ef
     encoder_type: pixel_l2
     decoder_type: pixel_l2
-    kernel_type: inner_product
+    trunk_regularization: true
   trainer:
+    seed: 1
     env:
       encoder_type: pixel_l2
     eval_env:
       encoder_type: pixel_l2
 sweeper:
-  name: neural_ef_ksme_inner_product_normalized
-  num_runs: 1
+  name: neural_ef_regularized
+  num_runs: 3
   parameters:
     trainer:
-      seed: {values: [1, 2, 3]}
+      trainer_regularized_scale: {values: [1.0, 0.1, 0.01]}
