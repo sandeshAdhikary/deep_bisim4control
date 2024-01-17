@@ -105,8 +105,6 @@ class GridWorld(gym.Env):
 
 
     def step(self, action):
-        # If discrete: Action space = [0,1,2,3] = [right, left, up, down]
-        # If continuous: Action space: [0,1] = right, (1,2] = left, (2,3] = up, (3,4] = down, anything else: no-op
 
         self.steps += 1
         if self.action_mode == 'discrete':

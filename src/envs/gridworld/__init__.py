@@ -13,13 +13,11 @@ def make_gridworld(
         height=84,
         width=84,
         size=10,
-        sparse_rewards=True,
-        boxed_env=False,
+        sparse_rewards=False,
+        random_init=True,
 ):
-    if boxed_env:
-        env_id = f'{domain_name}-{task_name}-boxed-v1'
-    else:
-        env_id = f'{domain_name}-{task_name}-v1'
+    
+    env_id = f'{domain_name}-{task_name}-v1'
 
     max_episode_steps = (episode_length + frame_skip - 1) // frame_skip
 
@@ -28,7 +26,7 @@ def make_gridworld(
 
     env_config = {
         'size': size,
-        'init_pos': [5,5],
+        'init_pos': None,
         'goals': goals,
         'obstacles': obstacles,
         'goal_weights': goal_weights,
@@ -37,7 +35,7 @@ def make_gridworld(
         'seed': seed,
         'img_size': height,
         'action_mode': 'continuous',
-        'random_init': True
+        'random_init': random_init
     }
     assert height == width, 'Height and width must be equal'
     
@@ -45,10 +43,7 @@ def make_gridworld(
     if not env_id in gym.envs.registry:
         
         if from_pixels:
-            if boxed_env:
-                entry_point = 'src.envs.gridworld.gridworld:GridWorldRGB_Boxed'
-            else:
-                entry_point = 'src.envs.gridworld.gridworld:GridWorldRGB'
+            entry_point = 'src.envs.gridworld.gridworld:GridWorldRGB'
         else:
             entry_point = 'src.envs.gridworld.gridworld:GridWorld'
 

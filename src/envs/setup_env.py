@@ -9,7 +9,7 @@ def make_env(args):
         args = SimpleNamespace(**args)
 
     if args.domain_name == 'gridworld':
-        size = 10
+        size = 20
         env = make_gridworld(
             domain_name=args.domain_name,
             task_name=args.task_name,
@@ -18,9 +18,7 @@ def make_env(args):
             height=args.image_size,
             width=args.image_size,
             size=size,
-            boxed_env=args.boxed_env,
             episode_length=args.episode_length
-
         )
     else:
         env = dmc2gym.make(
