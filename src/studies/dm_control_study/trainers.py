@@ -59,51 +59,58 @@ class BisimRLTrainer(RLTrainer):
                     })
 
 
-            # log encoder
-            log_dict['train/encoder/loss'] = last_log['encoder']['encoder_loss']
-            ortho_loss = last_log['encoder'].get('ortho_loss')
-            if ortho_loss is not None:
-                log_dict['train/encoder/ortho_loss'] = ortho_loss
-            dist_loss = last_log['encoder'].get('dist_loss')
-            if dist_loss is not None:
-                log_dict['train/encoder/dist_loss'] = dist_loss
-
             # Log learning rates
             log_dict.update({
                 'train/critic/lr': self.model.model.critic_optimizer.param_groups[0]['lr'],
                 'train/actor/lr': self.model.model.actor_optimizer.param_groups[0]['lr'],
                 'train/alpha/lr': self.model.model.log_alpha_optimizer.param_groups[0]['lr'],
-                'train/encoder/lr': self.model.model.encoder_optimizer.param_groups[0]['lr']
                 })
 
+            # log encoder
+            if last_log.get('encoder') is not None:
+                log_dict['train/encoder/loss'] = last_log['encoder']['encoder_loss']
+                ortho_loss = last_log['encoder'].get('ortho_loss')
+                if ortho_loss is not None:
+                    log_dict['train/encoder/ortho_loss'] = ortho_loss
+                dist_loss = last_log['encoder'].get('dist_loss')
+                if dist_loss is not None:
+                    log_dict['train/encoder/dist_loss'] = dist_loss
 
-            # log embedding norms
-            embedding_norm_log = last_log['encoder'].get('embedding_norm')
-            if embedding_norm_log is not None:
+                # Log encoder lr
                 log_dict.update({
-                    'train/encoder/norm': embedding_norm_log
+                    'train/encoder/lr': self.model.model.encoder_optimizer.param_groups[0]['lr']
                 })
 
-            # Log inverse dynamics logs
-            inverse_dynamics_log = last_log['encoder'].get('inverse_dynamics_loss')
-            if inverse_dynamics_log is not None:
-                log_dict.update({
-                    'train/encoder/inverse_dynamics_loss': inverse_dynamics_log
-                })
+
+                # log embedding norms
+                embedding_norm_log = last_log['encoder'].get('embedding_norm')
+                if embedding_norm_log is not None:
+                    log_dict.update({
+                        'train/encoder/norm': embedding_norm_log
+                    })
+
+                # Log inverse dynamics logs
+                inverse_dynamics_log = last_log['encoder'].get('inverse_dynamics_loss')
+                if inverse_dynamics_log is not None:
+                    log_dict.update({
+                        'train/encoder/inverse_dynamics_loss': inverse_dynamics_log
+                    })
+
+                # Log eigenvalues
+                if last_log['encoder'].get('eigenvalues') is not None:
+                    self.logger.log_linechart(
+                        key = 'train/encoder/eigenvalues',
+                        data = {
+                            'title': 'Eigenvalues',
+                            'x': [range(len(last_log['encoder']['eigenvalues']))],
+                            'y': [last_log['encoder']['eigenvalues']],
+                        }
+                    )
 
 
             self.logger.log(log_dict=log_dict)
 
-            # Log eigenvalues
-            if last_log['encoder'].get('eigenvalues') is not None:
-                self.logger.log_linechart(
-                    key = 'train/encoder/eigenvalues',
-                    data = {
-                        'title': 'Eigenvalues',
-                        'x': [range(len(last_log['encoder']['eigenvalues']))],
-                        'y': [last_log['encoder']['eigenvalues']],
-                    }
-                )
+
 
         if len(self.eval_log) >= 1:
             last_log = self.eval_log[-1]['log']

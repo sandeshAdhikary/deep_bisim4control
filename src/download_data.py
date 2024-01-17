@@ -5,11 +5,12 @@ import argparse
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--gridworld_trajectories', action='store_true', default=False)
     parser.add_argument('--distracted_dmc_images',action='store_true', default=False)
     parser.add_argument('--driving_stereo_images', action='store_true', default=False)
     parser.add_argument('--moving_mnist_images',action='store_true', default=False)
     parser.add_argument('--kinetics_videos', action='store_true', default=False)
-    parser.add_argument('--dmc_observations', action='store_true', default=False)
+    parser.add_argument('--dmc_trajectory', action='store_true', default=False)
     args = parser.parse_args()
 
 
@@ -23,8 +24,10 @@ if __name__ == "__main__":
         data_folders['moving_mnist_images'] = {'remote': os.environ['REMOTE_MOVING_MNIST_DATASET']}
     if args.kinetics_videos:
         data_folders['kinetics_videos'] = {'remote': os.environ['REMOTE_KINETICS_VIDEOS_DATASET']}
-    if args.dmc_observations:
+    if args.dmc_trajectory:
         data_folders['dmc_observations'] = {'remote': os.environ['REMOTE_DMC_OBSERVATIONS_DATASET']}
+    if args.gridworld_trajectories:
+        data_folders['gridworld_trajectories'] = {'remote': os.environ['REMOTE_GRIDWORLD_DATA_DATASET']}
         
     for k,v in data_folders.items():
         data_folders[k]['local'] = os.environ['LOCAL_DATA_DIR']
