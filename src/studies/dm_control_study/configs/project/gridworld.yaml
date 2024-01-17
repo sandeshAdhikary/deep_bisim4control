@@ -1,0 +1,43 @@
+name: gridworld
+desc: |
+  Gridworld
+overrides:
+  trainer:
+    env:
+      domain_name: gridworld
+      task_name: vert
+      img_source: null
+      frame_stack: 1
+      episode_length: 500
+    eval_env:
+      frame_stack: 1
+      episode_length: 500
+  evaluator:
+    callbacks:
+        gridworld:
+          module_path: src.studies.dm_control_study.eval_callbacks.GridWorldEvalCallback
+          data_path: ${oc.env:GRIDWORLD_DATA_DATASET}
+          n_iter: 5000
+          random_state: 0
+          init: random
+    envs:
+      dmc_env:
+        domain_name: gridworld
+        task_name: vert
+        seed: 123
+        episode_length: &eval_episode_length 500
+        image_size: 88
+        img_source: null
+        frame_stack: 1
+        num_envs: ${....evaluator.num_envs}
+        render: false
+        total_frames: 1000
+        encoder_type: pixel
+        action_repeat: ${....trainer.env.action_repeat}
+    metrics:
+      gridworld_feature_heatmaps:
+        name: gridworld_feature_heatmaps
+        module_path: src.studies.dm_control_study.metrics.GridWorldFeaturesHeatmapMetric
+      gridworld_clusters:
+        name: gridworld_clusters
+        module_path: src.studies.dm_control_study.metrics.GridWorldClusterMetric

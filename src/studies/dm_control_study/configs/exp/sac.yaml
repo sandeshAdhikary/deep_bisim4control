@@ -1,0 +1,11 @@
+name: SAC
+exp_mode: ???
+overrides:
+  model:
+    agent: sac
+sweeper:
+  name: sac
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}

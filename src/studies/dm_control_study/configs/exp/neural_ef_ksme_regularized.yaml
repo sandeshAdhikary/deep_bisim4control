@@ -1,19 +1,18 @@
-name: NeuralEF
+name: NeuralEFKSME_Regularized
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: neural_ef
+    encoder_mode: neural_ef_ksme
     encoder_type: pixel_l2
     decoder_type: pixel_l2
     trunk_regularization: true
   trainer:
-    seed: 1
     env:
       encoder_type: pixel_l2
     eval_env:
       encoder_type: pixel_l2
 sweeper:
-  name: neural_ef_regularized
+  name: neural_ef_ksme_regularized
   num_runs: 3
   parameters:
     model:

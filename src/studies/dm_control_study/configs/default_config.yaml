@@ -22,6 +22,12 @@ study:
       type: scalar
       temporal: false
       table_spec: null
+    # gridworld_feature_heatmaps:
+    #   name: gridworld_feature_heatmaps
+    #   module_path: src.studies.dm_control_study.metrics.GridWorldFeaturesHeatmapMetric
+    # gridworld_clusters:
+    #   name: gridworld_clusters
+    #   module_path: src.studies.dm_control_study.metrics.GridWorldClusterMetric
     observation_videos:
       name: observation_videos
       type: object
@@ -248,18 +254,18 @@ evaluator:
       type: object
       temporal: false
       table_spec: null
-    tsne:
-      name: tsne
-      module_path: src.studies.dm_control_study.metrics.TSNEClustersMetric
-    kmeans:
-      name: kmeans
-      module_path: src.studies.dm_control_study.metrics.KMeansClustersMetric
+    # tsne:
+    #   name: tsne
+    #   module_path: src.studies.dm_control_study.metrics.TSNEClustersMetric
+    # kmeans:
+    #   name: kmeans
+    #   module_path: src.studies.dm_control_study.metrics.KMeansClustersMetric
     rewards_dataframe:
       name: rewards_dataframe
       module_path: src.studies.dm_control_study.metrics.RewardsDataFrameMetric
   callbacks:
       clusters:
-        module_path: src.studies.dm_control_study.evaluators.ClusteringEvalCallback
+        module_path: src.studies.dm_control_study.eval_callbacks.ClusteringEvalCallback
         data_path: ${oc.env:DMC_OBSERVATIONS_DATASET}
         env_name: ${....trainer.env.domain_name}-${....trainer.env.task_name}
         n_iter: 5000
