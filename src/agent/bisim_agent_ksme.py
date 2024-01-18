@@ -79,7 +79,6 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
 
             if self.normalize_kernel:
                 D_sqrt = (torch.sum(kernel, dim=1) + 1e-8)**(-0.5) # Small epsilon noise to prevent infs
-                print(D_sqrt)
                 D_sqrt = torch.diag(D_sqrt)
                 #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
                 kernel = D_sqrt @ kernel @ D_sqrt

@@ -311,6 +311,7 @@ class BisimAgent(object):
         # Optimize the critic
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
+        # nn.utils.clip_grad.clip_grad_norm_(self.critic.parameters(), 40.)
         self.critic_optimizer.step()
         if L is not None:
             self.critic.log(L, step)
@@ -368,6 +369,7 @@ class BisimAgent(object):
         # optimize the actor
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        # nn.utils.clip_grad.clip_grad_norm_(self.actor.parameters(), 40.)
         self.actor_optimizer.step()
         if L is not None:
             self.actor.log(L, step)
@@ -450,19 +452,20 @@ class BisimAgent(object):
             bisimilarity = r_dist + self.discount * transition_dist
             loss = (z_dist - bisimilarity).pow(2).mean()
         elif self.distance_type == 'mico':
-            # Get the distance between the embeddings
-            z_dist = 0.5*(h.pow(2).sum(dim=1) + h2.pow(2).sum(dim=1))
-            z_dist += self.mico_beta * torch.cosine_similarity(h, h2, dim=1, eps=1e-8)
-            # Get the target MICO distance
-            reward_dist = F.smooth_l1_loss(reward, reward2, reduction='none').squeeze() # The reward distance
-            with torch.no_grad():
-                # Note: MICO uses the frozen encoder to get these
-                h_next = self.critic_target.encoder(next_obs)
-                h_next_2 = h_next[perm]
-            transition_dist = 0.5*(h_next.pow(2).sum(dim=1) + h_next_2.pow(2).sum(dim=1))
-            transition_dist += self.mico_beta * torch.cosine_similarity(h_next, h_next_2, dim=1, eps=1e-8)
-            mico_dist = reward_dist + self.discount * transition_dist
-            loss = (z_dist - mico_dist).pow(2).mean()
+            raise NotImplementedError
+            # # Get the distance between the embeddings
+            # z_dist = 0.5*(h.pow(2).sum(dim=1) + h2.pow(2).sum(dim=1))
+            # z_dist += self.mico_beta * torch.cosine_similarity(h, h2, dim=1, eps=1e-8)
+            # # Get the target MICO distance
+            # reward_dist = F.smooth_l1_loss(reward, reward2, reduction='none').squeeze() # The reward distance
+            # with torch.no_grad():
+            #     # Note: MICO uses the frozen encoder to get these
+            #     h_next = self.critic_target.encoder(next_obs)
+            #     h_next_2 = h_next[perm]
+            # transition_dist = 0.5*(h_next.pow(2).sum(dim=1) + h_next_2.pow(2).sum(dim=1))
+            # transition_dist += self.mico_beta * torch.cosine_similarity(h_next, h_next_2, dim=1, eps=1e-8)
+            # mico_dist = reward_dist + self.discount * transition_dist
+            # loss = (z_dist - mico_dist).pow(2).mean()
         else:
             raise ValueError(f"Unknown distance type: {self.distance_type}")
 

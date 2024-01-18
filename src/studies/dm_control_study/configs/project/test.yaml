@@ -4,7 +4,7 @@ desc: |
 overrides:
   model:
     trunk_regularization: false
-    encoder_feature_dim: 121
+    encoder_feature_dim: 25
   trainer:
     eval_freq: 99
     log_epoch_freq: 10

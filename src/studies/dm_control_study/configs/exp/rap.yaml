@@ -1,0 +1,14 @@
+name: RAP
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: rap
+    rap_structural_distance: mico_angular
+    rap_reward_dist: True
+    rap_square_target: True
+sweeper:
+  name: rap
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}
