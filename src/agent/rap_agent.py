@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from src.agent.bisim_agent_baseline import BisimAgent
-# EPSILON = 1e-9 # original epsilon from the RAP repo; resulted in nans
-EPSILON = 1e-5 # New epsilon to avoid nans
+EPSILON = 1e-9 # original epsilon from the RAP repo; resulted in nans
+# EPSILON = 1e-5 # New epsilon to avoid nans
 
 class RAPBisimAgent(BisimAgent):
     """
@@ -235,8 +235,9 @@ class StateRewardDecoder(nn.Module):
 
         return loss
     
-def _sqrt(x, tol=0.):
-    tol = torch.zeros_like(x)
+def _sqrt(x, tol=EPSILON):
+    # tol = torch.zeros_like(x)
+    tol = torch.ones_like(x)*tol
     return torch.sqrt(torch.maximum(x, tol))
 
 def cosine_distance(x, y):
@@ -283,7 +284,7 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
 
         return loss, loss_dict    
 
-    def _distance(self, reward, reward_sigma, pred_next_latent_mu):
+    def _distance(self, reward, reward_sigma, pred_next_latent_mu, next_obs=None):
 
         reward_variance = reward_sigma.detach().pow(2.) # (B,1)
 
@@ -401,6 +402,6 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
         #     torch.sum(x.pow(2.), dim=-1, keepdim=True)) * torch.sqrt(torch.sum(y.pow(2.), dim=-1, keepdim=True))
         # cos_similarity = numerator / (denominator + EPSILON)
 
-        cos_similarity = torch.nn.functional.cosine_similarity(x[:,:,None], y.t()[None,:,:], eps=10*EPSILON) 
+        cos_similarity = torch.nn.functional.cosine_similarity(x[:,:,None], y.t()[None,:,:], eps=EPSILON) 
 
         return torch.atan2(_sqrt(1. - cos_similarity.pow(2.)), cos_similarity)
