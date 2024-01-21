@@ -1,0 +1,12 @@
+name: SLAC
+exp_mode: ???
+overrides:
+  model:
+    agent: slac
+    decoder_type: identity
+sweeper:
+  name: slac
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}

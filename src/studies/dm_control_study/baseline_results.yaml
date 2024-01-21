@@ -1,0 +1,201 @@
+finger_spin:
+    dbc_paper:
+        dbc: 900
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: 30
+        dbc_robust: null
+        sac: 190
+        mico: 190
+        mico_plus_dbc: 190
+        rap: null
+    robust_dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    rap_paper:
+        dbc: 900
+        dbc_robust: 950
+        sac: 550
+        mico: 900
+        mico_plus_dbc: null
+        rap: 950
+walker_walk:
+    dbc_paper:
+        dbc: 800
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: 100
+        dbc_robust: null
+        sac: 185
+        mico_plus_dbc: 125
+        mico: 160
+        rap: null
+    robust_dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico_plus_dbc: null
+        mico: null
+    rap_paper:
+        dbc: 500
+        dbc_robust: 850
+        sac: 400
+        mico_plus_dbc: null
+        mico: 450
+        rap: 950
+walker_stand:
+    dbc_paper:
+        dbc: 950
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: 250
+        dbc_robust: null
+        sac: 375
+        mico_plus_dbc: 450
+        mico: 350
+        rap: null
+    robust_dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico_plus_dbc: null
+        mico: null
+    rap_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico_plus_dbc: null
+        mico: null
+        rap: null
+cheetah_run:
+    dbc_paper:
+        dbc: 250
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: 60
+        dbc_robust: null
+        sac: 180
+        mico_plus_dbc: 150
+        mico: 180
+        rap: null
+    robust_dbc_paper:
+        dbc: 275
+        dbc_robust: 425
+        sac: 450
+        mico_plus_dbc: null
+        mico: null
+    rap_paper:
+        dbc: 450
+        dbc_robust: 400
+        sac: 400
+        mico_plus_dbc: null
+        mico: 400
+        rap: 850
+cartpole_swingup:
+    dbc_paper:
+        dbc: 725
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: 200
+        dbc_robust: null
+        sac: 600
+        mico: 700
+        mico_plus_dbc: 225
+        rap: null
+    robust_dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+    rap_paper:
+        dbc: 800
+        dbc_robust: 825
+        sac: 800
+        mico: 750
+        mico_plus_dbc: null
+        rap: 825
+cartpole_balance:
+    dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: 450
+        dbc_robust: null
+        sac: 950
+        mico: 950
+        mico_plus_dbc: 400
+        rap: null
+    robust_dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+    rap_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+ball_in_cup:
+    dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    mico_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+    robust_dbc_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+    rap_paper:
+        dbc: null
+        dbc_robust: null
+        sac: null
+        mico: null
+        mico_plus_dbc: null
+        rap: null
+
+
+
+

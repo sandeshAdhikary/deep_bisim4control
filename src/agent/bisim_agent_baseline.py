@@ -452,20 +452,22 @@ class BisimAgent(object):
             bisimilarity = r_dist + self.discount * transition_dist
             loss = (z_dist - bisimilarity).pow(2).mean()
         elif self.distance_type == 'mico':
-            raise NotImplementedError
-            # # Get the distance between the embeddings
-            # z_dist = 0.5*(h.pow(2).sum(dim=1) + h2.pow(2).sum(dim=1))
-            # z_dist += self.mico_beta * torch.cosine_similarity(h, h2, dim=1, eps=1e-8)
-            # # Get the target MICO distance
-            # reward_dist = F.smooth_l1_loss(reward, reward2, reduction='none').squeeze() # The reward distance
-            # with torch.no_grad():
-            #     # Note: MICO uses the frozen encoder to get these
-            #     h_next = self.critic_target.encoder(next_obs)
-            #     h_next_2 = h_next[perm]
-            # transition_dist = 0.5*(h_next.pow(2).sum(dim=1) + h_next_2.pow(2).sum(dim=1))
-            # transition_dist += self.mico_beta * torch.cosine_similarity(h_next, h_next_2, dim=1, eps=1e-8)
-            # mico_dist = reward_dist + self.discount * transition_dist
-            # loss = (z_dist - mico_dist).pow(2).mean()
+            # Get the distance between the embeddings
+            z_dist = 0.5*(h.pow(2).sum(dim=1) + h2.pow(2).sum(dim=1))
+            z_dist += self.mico_beta * self._cosine_distance(h, h2)
+            
+            # Get the target MICO distance
+            reward_dist = F.smooth_l1_loss(reward, reward2, reduction='none').squeeze() # The reward distance
+            with torch.no_grad():
+                # Note: MICO uses the frozen encoder to get these
+                h_next = self.critic_target.encoder(next_obs)
+                h_next_2 = h_next[perm]
+            transition_dist =  0.5*(h_next.pow(2).sum(dim=1) + h_next_2.pow(2).sum(dim=1))
+            transition_dist += self.mico_beta *  self._cosine_distance(h_next, h_next_2)
+            mico_dist = reward_dist + self.discount * transition_dist
+            
+            # Get loss
+            loss = (z_dist - mico_dist).pow(2).mean()
         else:
             raise ValueError(f"Unknown distance type: {self.distance_type}")
 
@@ -476,6 +478,13 @@ class BisimAgent(object):
         output_dict['embedding_norm'] = torch.norm(h, dim=1).mean().item()
 
         return loss, output_dict
+
+    def _cosine_distance(self, x, y, epsilon=1e-8):
+        # Get the cosine distance from cosine similarities
+        cos_theta = torch.cosine_similarity(x, y, dim=-1, eps=epsilon)
+        tolerance = torch.ones_like(cos_theta)*epsilon # tolerance; to prevent sqrt(0)
+        sin_theta = torch.sqrt(torch.maximum(1 - cos_theta.pow(2), tolerance))
+        return torch.atan2(sin_theta, cos_theta) # theta = arctan(sin/cos)
 
     def update_transition_reward_model(self, obs, action, next_obs, reward, L=None, step=None):
         """

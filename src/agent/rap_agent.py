@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from src.agent.bisim_agent_baseline import BisimAgent
+from sklearn.metrics.pairwise import cosine_similarity as pairwise_consine_similarity
+
 EPSILON = 1e-9 # original epsilon from the RAP repo; resulted in nans
 # EPSILON = 1e-5 # New epsilon to avoid nans
 
@@ -251,7 +253,7 @@ def cosine_distance(x, y):
 
 class NeuralEFRAPBisimAgent(RAPBisimAgent):
     def __init__(self, *args, **kwargs):
-        self.normalize_kernel = kwargs.pop('normalize_kernel', False)
+        self.normalize_kernel = kwargs.pop('normalize_kernel', True)
         self.kernel_type = kwargs.pop('kernel_type', 'gaussian')
         super().__init__(*args, **kwargs)
 
@@ -317,7 +319,7 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
             norm_average = (x.pow(2.).sum(dim=-1, keepdim=True)
             # norm_average = 0.5 * (x.pow(2.).sum(dim=-1, keepdim=True) 
                 + y.pow(2.).sum(dim=-1, keepdim=True))
-            dist = norm_average + beta * base_distances
+            dist = norm_average + (beta * base_distances)
         elif self.rap_structural_distance == 'x^2+y^2-xy':
             raise NotImplementedError
             # # beta = 1.0 # 0 < beta < 2
@@ -395,13 +397,10 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
         return loss, loss_dict
 
 
-    def _cosine_distance(self, x, y):
-        # numerator = torch.sum(x * y, dim=-1, keepdim=True)
-        # # print("numerator", numerator.shape, numerator)
-        # denominator = torch.sqrt(
-        #     torch.sum(x.pow(2.), dim=-1, keepdim=True)) * torch.sqrt(torch.sum(y.pow(2.), dim=-1, keepdim=True))
-        # cos_similarity = numerator / (denominator + EPSILON)
-
-        cos_similarity = torch.nn.functional.cosine_similarity(x[:,:,None], y.t()[None,:,:], eps=EPSILON) 
-
-        return torch.atan2(_sqrt(1. - cos_similarity.pow(2.)), cos_similarity)
+    def _cosine_distance(self, x, y, epsilon=1e-8):
+        #TODO: Replace scipy's consine similarity with torch functions
+        cos_theta = pairwise_consine_similarity(x.detach().cpu().numpy(), y.detach().cpu().numpy())
+        cos_theta = torch.from_numpy(cos_theta).to(x.device)
+        tolerance = torch.ones_like(cos_theta)*epsilon# tolerance; to prevent sqrt(0)
+        sin_theta = torch.sqrt(torch.maximum(1 - cos_theta.pow(2), tolerance)) # sinx = sqrt(1-cos(x)^2)
+        return torch.atan2(sin_theta, cos_theta) # theta = arctan(sin/cos)

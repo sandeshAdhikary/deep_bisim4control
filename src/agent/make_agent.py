@@ -5,6 +5,7 @@ from src.agent.bisim_agent_spectral import SpectralBisimAgent, NeuralEFBisimAgen
 from src.agent.bisim_agent_ksme import KSMEBisimAgent, NeuralEFKSMEBisimAgent
 from src.agent.sac_agent import SACAgent
 from src.agent.rap_agent import RAPBisimAgent, NeuralEFRAPBisimAgent
+from src.agent.slac_agent import SLACAgent
 
 
 DISTANCE_TYPES = {'dbc': 'bisim', 'mico': 'mico'}
@@ -66,19 +67,34 @@ def make_agent(obs_shape, action_shape, args, device):
 
     
     if args.agent == 'bisim':
-        if args.encoder_mode in ['dbc', 'mico']:
+        if args.encoder_mode == 'dbc':
+            agent_kwargs.update({'distance_type': 'bisim'})
             # Baseline Bisim Agent
             agent = BisimAgent(**agent_kwargs)
+        elif args.encoder_mode == 'mico':
+            # Mico Agent
+            agent_kwargs.update({'distance_type': 'mico'})
+            agent = BisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'spectral':
-            # Spectral Bisim Agent
-            agent_kwargs.update({
-                'encoder_kernel_bandwidth': args.encoder_kernel_bandwidth,
-                'encoder_normalize_loss': args.encoder_normalize_loss,
-                'encoder_ortho_loss_reg': args.encoder_ortho_loss_reg,
-            })
-            agent = SpectralBisimAgent(**agent_kwargs)
+            raise NotImplementedError("Spectral agent not implemented")
+            # # Spectral Bisim Agent
+            # agent_kwargs.update({
+            #     'encoder_kernel_bandwidth': args.encoder_kernel_bandwidth,
+            #     'encoder_normalize_loss': args.encoder_normalize_loss,
+            #     'encoder_ortho_loss_reg': args.encoder_ortho_loss_reg,
+            # })
+            # agent = SpectralBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'neural_ef':
-            agent_kwargs.update({'normalize_kernel': args.normalize_kernel})
+            agent_kwargs.update({
+                'normalize_kernel': args.normalize_kernel,
+                'distance_type': 'bisim'
+                })
+            agent = NeuralEFBisimAgent(**agent_kwargs)
+        elif args.encoder_mode == 'neural_ef_mico':
+            agent_kwargs.update({
+                'normalize_kernel': args.normalize_kernel,
+                'distance_type': 'mico'
+                })
             agent = NeuralEFBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'ksme':
             agent_kwargs.update({'rew_max': args.rew_max, 'rew_min': args.rew_min })
@@ -110,6 +126,8 @@ def make_agent(obs_shape, action_shape, args, device):
             raise ValueError(f"Unknown encoder_mode {args.encoder_mode}")
     elif args.agent == 'sac':
         agent = SACAgent(**agent_kwargs)
+    elif args.agent == 'slac':
+        agent = SLACAgent(**agent_kwargs)
     else:
         raise NotImplementedError(f"Agent {args.agent} not implemented")
     return agent

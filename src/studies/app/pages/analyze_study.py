@@ -11,6 +11,10 @@ import pandas as pd
 import json
 import altair as alt
 from streamlit_js_eval import streamlit_js_eval
+import numpy as np
+
+
+
 
 def block_content(block):
     study.update_blocks()
@@ -88,9 +92,10 @@ else:
 
     # Define columns to group-by
     with st.sidebar:
-        runs, group_cols = app_utils.group_runs(runs)
-        runs = app_utils.avg_over_group(runs)
-
+        grouped_runs, group_cols = app_utils.group_runs(runs)
+        grouped_runs = app_utils.avg_over_group(runs)
+        grouped_runs = grouped_runs['group']
+        groups = group_cols
 
     # View selected data
     st.header("View Selected Data")
@@ -99,113 +104,147 @@ else:
 
     ## 1. Learning Curves
     st.header("Learning Curves")
-    with st.expander("Learning Curves", expanded=False):
-        st.write("Here are the learning curves for the selected runs. Note that these curves are not grouped.")
-        # Plot Training metrics
-        all_train_data = []
-        all_train_eval_data = []
-        not_found_train_data = []
-        not_found_train_eval_data = []
-        for idr, row in runs.iterrows():
-            project = row['project']
-            sweep = row['sweep']
-            run_id = row['run_id']
-            run_group =  f"Project: {project} | Sweep: {sweep} | Run: {run_id}"
-            if sweep is not None:
-                train_file = f'{project}/sweep_{sweep}/{run_id}/eval/train_history.json'
-                eval_file = f'{project}/sweep_{sweep}/{run_id}/eval/train_eval_history.json'
-            else:
-                train_file = f'{project}/{run_id}/eval/train_history.json'
-                eval_file = f'{project}/{run_id}/eval/train_eval_history.json'
+    with st.expander("Learning Curves", expanded=True):
+        learning_curve_btn = st.checkbox("Plot Learning Curves")
+        if learning_curve_btn:
+            st.write("Here are the learning curves for the selected runs.")
+            # Plot Training metrics
+            all_train_data = []
+            all_eval_data = []
+            not_found_train_data = []
+            not_found_train_eval_data = []
+            for idr, row in runs.iterrows():
+                project = row['project']
+                sweep = row['sweep']
+                run_id = row['run_id']
+                # run_info =  f"Project: {project} | Sweep: {sweep} | Run: {run_id}"
+                if sweep is not None:
+                    train_file = f'{project}/sweep_{sweep}/{run_id}/eval/train_history.json'
+                    eval_file = f'{project}/sweep_{sweep}/{run_id}/eval/train_eval_history.json'
+                else:
+                    train_file = f'{project}/{run_id}/eval/train_history.json'
+                    eval_file = f'{project}/{run_id}/eval/train_eval_history.json'
 
 
-            try:
-                train_data = study.storage.load(train_file, filetype='json')
-                if isinstance(train_data, str):
-                    train_data = json.loads(train_data)
-                train_data = pd.DataFrame(train_data)
-                train_data['group'] = run_group
-                all_train_data.append(train_data)
-            except FileNotFoundError as e:
-                not_found_train_data.append(run_group)
-            try:
-                train_eval_data = study.storage.load(eval_file, filetype='json')
-                if isinstance(train_eval_data, str):
-                    train_eval_data = json.loads(train_eval_data)
-                train_eval_data = pd.DataFrame(train_eval_data)
-                train_eval_data['group'] = run_group
-                all_train_eval_data.append(train_eval_data)
-            except FileNotFoundError as e:
-                not_found_train_eval_data.append(run_group)
+                try:
+                    train_data = study.storage.load(train_file, filetype='json')
+                    if isinstance(train_data, str):
+                        train_data = json.loads(train_data)
+                    train_data = pd.DataFrame(train_data)
+                    train_data['project'] = project
+                    train_data['sweep'] = sweep
+                    train_data['run_id'] = run_id
+                    # train_data['group'] = run_group
+                    all_train_data.append(train_data)
+                except FileNotFoundError as e:
+                    not_found_train_data.append({'project': project, 'sweep': sweep, 'run_id': run_id})
 
-        if len(all_train_data) > 0:
+
+                try:
+                    eval_data = study.storage.load(eval_file, filetype='json')
+                    if isinstance(eval_data, str):
+                        eval_data = json.loads(eval_data)
+                    eval_data = pd.DataFrame(eval_data)
+                    eval_data['project'] = project
+                    eval_data['sweep'] = sweep
+                    eval_data['run_id'] = run_id
+                    all_eval_data.append(eval_data)
+                except FileNotFoundError as e:
+                    not_found_train_eval_data.append({'project': project, 'sweep': sweep, 'run_id': run_id})
+
+            if len(all_train_data) > 0:
+                all_train_data = pd.concat(all_train_data)
+
+            if len(not_found_train_data) > 0:
+                st.warning(f"""Could not find training learning curves for the following runs:""")
+                st.write(not_found_train_data)
+
+            if len(all_eval_data) > 0:
+                all_eval_data = pd.concat(all_eval_data)
+            if len(not_found_train_eval_data) > 0:
+                st.warning(f"""Could not find evaluation history for the following runs:""")
+                st.write(not_found_train_eval_data)
+                
+            all_train_data = app_utils.merge_with_runs(all_train_data, runs, group_cols)
+            all_train_data = app_utils.avg_over_group(all_train_data, group_by_cols = ['_step', *group_cols])
+        
+
             st.subheader("Training Learning Curves")
-            all_train_data = pd.concat(all_train_data)
-            train_smoothing_value = -st.slider("Smoothing", min_value=0, max_value=50, step=1, value=1, key='train_learning_curve_slider')
             app_utils.plot_learning_curve(all_train_data, 
                                         x_value = 'trainer_step',
                                         y_value='train/episode_reward',
-                                        smoothing_value=train_smoothing_value, 
-                                        title='')
+                                        y_title='Episode Reward (Training Env.)',
+                                        x_title='Steps (10\u2076)',
+                                        smoothing_value=0.0, 
+                                        title='',
+                                        group_cols=group_cols,
+                                        y_norm_lims=[0., 1000.],
+                                        y_plot_lims=[0,1],
+                                        x_norm_lims=[0,1_000_000],
+                                        x_plot_lims=[0,1],
+                                        key_suffix='train_learning_curves'
+                                        )
 
-        if len(not_found_train_data) > 0:
-            st.warning(f"""Could not find training learning curves for the following runs:""")
-            st.write(not_found_train_data)
-
-
-        if len(all_train_eval_data) > 0:
+            
+            all_eval_data = app_utils.merge_with_runs(all_eval_data, runs, group_cols)
+            all_eval_data = app_utils.avg_over_group(all_eval_data, group_by_cols = ['_step', *group_cols])
             st.subheader("Evaluation Learning Curves")
-            all_train_eval_data = pd.concat(all_train_eval_data)
-            eval_smoothing_value = -st.slider("Smoothing", min_value=0, max_value=50, step=1, value=1, key='eval_learning_curve_slider')
-            app_utils.plot_learning_curve(all_train_eval_data,
-                                        x_value='eval_step',
-                                        y_value='eval/episode_reward_avg', 
+            app_utils.plot_learning_curve(all_eval_data, 
+                                        x_value = 'eval_step',
+                                        y_value='eval/episode_reward_avg',
                                         y_errs='eval/episode_reward_std',
-                                        smoothing_value=eval_smoothing_value, 
-                                        title='')
-        if len(not_found_train_eval_data) > 0:
-            st.warning(f"""Could not find evaluation history for the following runs:""")
-            st.write(not_found_train_eval_data)
+                                        y_title='Episode Reward (Eval Env.)',
+                                        x_title='Steps (10\u2076)',
+                                        smoothing_value=0.0, 
+                                        title='',
+                                        group_cols=group_cols,
+                                        y_norm_lims=[0., 1000.],
+                                        y_plot_lims=[0,1],
+                                        x_norm_lims=[0,1_000_000],
+                                        x_plot_lims=[0,1],
+                                        key_suffix='eval_learning_curves'
+                                        )
 
 
-    ## 3. Metrics
-    screen_width = streamlit_js_eval(js_expressions='window.innerWidth', key = 'SCR_WIDTH')
-    container_width = screen_width
+    # # ## 3. Metrics
+    # screen_width = streamlit_js_eval(js_expressions='window.innerWidth', key = 'SCR_WIDTH')
+    # container_width = screen_width
 
-    # # Evaluation metrics
-    st.header("Evaluation Metrics")
-    for metric_name, metric in study.metrics.items():
-            with st.expander(app_utils.pretty_title(metric_name), expanded=False) as container:
-                try:
-                    # Get metric data
-                    metric_data = study.metric_table(metric_name, limit=None)
-                    metric_data = metric_data.merge(runs, on=['run_id', 'sweep', 'project'],how='right')
-                    metric_data = metric_data.dropna(subset=['eval_name']) 
+    # # # # Evaluation metrics
+    # st.header("Evaluation Metrics")
+    # metric_plots_btn = st.checkbox("Plot Metrics", key='metric_plots_btn')
+    # if metric_plots_btn:
+    #     for metric_name, metric in study.metrics.items():
+    #             with st.expander(app_utils.pretty_title(metric_name), expanded=False) as container:
+    #                 try:
+    #                     # Get metric data
+    #                     metric_data = study.metric_table(metric_name, limit=None)
+    #                     metric_data = metric_data.merge(runs, on=['run_id', 'sweep', 'project'],how='right')
+    #                     metric_data = metric_data.dropna(subset=['eval_name']) 
 
 
-                    # Slider to select chart size
-                    chart_size = st.slider("Chart Size", min_value=0.1, max_value=1.0, value=0.3,
-                                            key=f"chart_size_{metric_name}", format="")
-                    chart_size = container_width*chart_size
-
-                    # Average out data over the groups                        
-                    # metric_data = app_utils.avg_over_group(metric_data)
-                    # Plots
-                    if metric_data.shape[0] > 0:
-                        st.subheader(app_utils.pretty_title(metric_name))
-                        if metric_name == 'observation_videos':
-                            app_utils.plot_videos(metric_data, storage=study.storage, key_prefix=metric_name)
-                        elif metric_name in ['kmeans', 'tsne']:
-                            app_utils.plot_chart(metric_data, storage=study.storage, key_prefix=metric_name)
-                        elif metric_name in ['rewards_dataframe']:
-                            # Don't plot here since these are inter-run metrics
-                            pass
-                        else:
-                            facet = {'name': 'eval_name', 'columns': int(container_width//chart_size)}
-                            app_utils.plot_scalars(metric, metric_data, group_cols, chart_size, facet)
-                except Exception as e:
-                    st.error(f"Could not plot {metric_name}")
-                    st.error(e)
+    #                     # Slider to select chart size
+    #                     chart_size = st.slider("Chart Size", min_value=0.1, max_value=1.0, value=0.3,
+    #                                             key=f"chart_size_{metric_name}", format="")
+    #                     chart_size = container_width*chart_size
+    #                     # Average out data over the groups                        
+    #                     metric_data = app_utils.avg_over_group(metric_data)
+    #                     # Plots
+    #                     if metric_data.shape[0] > 0:
+    #                         st.subheader(app_utils.pretty_title(metric_name))
+    #                         if metric_name == 'observation_videos':
+    #                             app_utils.plot_videos(metric_data, storage=study.storage, key_prefix=metric_name)
+    #                         elif metric_name in ['kmeans', 'tsne']:
+    #                             app_utils.plot_chart(metric_data, storage=study.storage, key_prefix=metric_name)
+    #                         elif metric_name in ['rewards_dataframe']:
+    #                             # Don't plot here since these are inter-run metrics
+    #                             pass
+    #                         else:
+    #                             facet = {'name': 'eval_name', 'columns': int(container_width//chart_size)}
+    #                             app_utils.plot_scalars(metric, metric_data, group_cols, chart_size, facet)
+    #                 except Exception as e:
+    #                     st.error(f"Could not plot {metric_name}")
+    #                     st.error(e)
     
     # ## Rliable Metrics
     st.header("RLiable Metrics")

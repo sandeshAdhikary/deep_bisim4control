@@ -20,7 +20,8 @@ class SACAgent(BisimAgent):
     Same as BisimAgent, but we remove all encoder, decoder, transition model updates
     i.e. only actor and critic updates remain
     """
-    
+
+
     def _update(self, obs, action, reward, next_obs, not_done, step, L=None):
         """
         Same as _update for BisimAgent. But removing encoder/decoder/transition_model updates
