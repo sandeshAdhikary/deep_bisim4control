@@ -111,6 +111,7 @@ def make_agent(obs_shape, action_shape, args, device):
                 'rap_structural_distance': args.rap_structural_distance,
                 'rap_reward_dist': args.rap_reward_dist,
                 'rap_square_target': args.rap_square_target,
+                'epsilon': args.epsilon
             })
             agent = RAPBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'neural_ef_rap':
@@ -119,7 +120,8 @@ def make_agent(obs_shape, action_shape, args, device):
                 'rap_reward_dist': args.rap_reward_dist,
                 'rap_square_target': args.rap_square_target,
                 'normalize_kernel': args.normalize_kernel,
-                'kernel_type': args.kernel_type
+                'kernel_type': args.kernel_type,
+                'epsilon': args.epsilon
             })
             agent = NeuralEFRAPBisimAgent(**agent_kwargs)
         else:

@@ -12,18 +12,20 @@ import torch.nn.functional as F
 from src.agent.bisim_agent_baseline import BisimAgent
 from sklearn.metrics.pairwise import cosine_similarity as pairwise_consine_similarity
 
-EPSILON = 1e-9 # original epsilon from the RAP repo; resulted in nans
-# EPSILON = 1e-5 # New epsilon to avoid nans
+
 
 class RAPBisimAgent(BisimAgent):
     """
     RAP Agent
     """
+    # EPSILON = 1e-9 # original epsilon from the RAP repo; resulted in nans
+    # # EPSILON = 1e-5 # New epsilon to avoid nans
 
     def __init__(self, *args, **kwargs):
         self.rap_structural_distance = kwargs.pop('rap_structural_distance', 'l1_smooth')
         self.rap_reward_dist = kwargs.pop('rap_reward_dist', False)
         self.rap_square_target = kwargs.pop('rap_square_target', False)
+        self.epsilon = kwargs.pop('epsilon', 1e-9) # noise used to stabilize sqrt and denominators
         super().__init__(*args, **kwargs)
 
 
@@ -95,10 +97,7 @@ class RAPBisimAgent(BisimAgent):
             if self.rap_reward_dist:
                 r_dist = (reward - reward2).pow(2.)
                 r_dist = F.relu(r_dist - r_var - r_var2)
-                r_dist = _sqrt(r_dist, tol=EPSILON)
-                # r_dist = (r_dist - r_var - r_var2).abs()
-                # r_dist = 
-                # r_dist = F.smooth_l1_loss(r_mean, r_mean2, reduction='none')
+                r_dist = self._sqrt(r_dist)
             else:
                 r_dist = F.smooth_l1_loss(reward, reward2, reduction='none')
 
@@ -145,7 +144,7 @@ class RAPBisimAgent(BisimAgent):
             dist = dist.mean(dim=-1, keepdim=True)
         elif self.rap_structural_distance == 'mico_angular':
             beta = 1e-6 #1e-5 # #0.1
-            base_distances = cosine_distance(x, y)
+            base_distances = self._cosine_distance(x, y)
             # print("base_distances", base_distances)
             norm_average = (x.pow(2.).sum(dim=-1, keepdim=True)
             # norm_average = 0.5 * (x.pow(2.).sum(dim=-1, keepdim=True) 
@@ -204,6 +203,21 @@ class RAPBisimAgent(BisimAgent):
         self.state_reward_decoder = self.state_reward_decoder.to(device=device)
         return self
     
+    def _sqrt(self, x, tol=None):
+        # tol = torch.zeros_like(x)
+        tol = tol or self.epsilon
+        tol = torch.ones_like(x)*tol
+        return torch.sqrt(torch.maximum(x, tol))
+
+    def _cosine_distance(self, x, y):
+        numerator = torch.sum(x * y, dim=-1, keepdim=True)
+        # print("numerator", numerator.shape, numerator)
+        denominator = torch.sqrt(
+            torch.sum(x.pow(2.), dim=-1, keepdim=True)) * torch.sqrt(torch.sum(y.pow(2.), dim=-1, keepdim=True))
+        cos_similarity = numerator / (denominator + self.epsilon)
+
+        return torch.atan2(self._sqrt(1. - cos_similarity.pow(2.)), cos_similarity)
+
 
 class StateRewardDecoder(nn.Module):
     def __init__(self, encoder_feature_dim, max_sigma=1e0, min_sigma=1e-4):
@@ -237,19 +251,7 @@ class StateRewardDecoder(nn.Module):
 
         return loss
     
-def _sqrt(x, tol=EPSILON):
-    # tol = torch.zeros_like(x)
-    tol = torch.ones_like(x)*tol
-    return torch.sqrt(torch.maximum(x, tol))
 
-def cosine_distance(x, y):
-    numerator = torch.sum(x * y, dim=-1, keepdim=True)
-    # print("numerator", numerator.shape, numerator)
-    denominator = torch.sqrt(
-        torch.sum(x.pow(2.), dim=-1, keepdim=True)) * torch.sqrt(torch.sum(y.pow(2.), dim=-1, keepdim=True))
-    cos_similarity = numerator / (denominator + EPSILON)
-
-    return torch.atan2(_sqrt(1. - cos_similarity.pow(2.)), cos_similarity)
 
 class NeuralEFRAPBisimAgent(RAPBisimAgent):
     def __init__(self, *args, **kwargs):
@@ -288,51 +290,52 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
 
     def _distance(self, reward, reward_sigma, pred_next_latent_mu, next_obs=None):
 
-        reward_variance = reward_sigma.detach().pow(2.) # (B,1)
-
         with torch.no_grad():
             r_dist = torch.cdist(reward, reward, p=1).pow(2.)
+
+            reward_variance = reward_sigma.detach().pow(2.) # (B,1)
             r_variance_dist = reward_variance[:,:,None] + reward_variance[None,:,:] # pairwise sums of vars
             r_variance_dist = r_variance_dist.squeeze(-1)
             # TODO: Without relu, the square root of negative values will result in nans
             #       But the paper doesn't mention this relu step
             r_dist = F.relu(r_dist - r_variance_dist)
-            r_dist = _sqrt(r_dist, tol=EPSILON)
-
-        if self.transition_model_type in ['', 'deterministic']:
-            # 2-norm distance between next latents
-            transition_dist = torch.cdist(pred_next_latent_mu, pred_next_latent_mu, p=2) # shape (B,B)
-        else:
-            transition_dist = self.metric_func(pred_next_latent_mu, pred_next_latent_mu)
+            r_dist = self._sqrt(r_dist)
+            # Use L2-distance on the latent space for transition distances
+            transition_dist = torch.cdist(pred_next_latent_mu, pred_next_latent_mu, p=2)
+            # if self.transition_model_type in ['', 'deterministic']:
+            #     # 2-norm distance between next latents
+            #     transition_dist = torch.cdist(pred_next_latent_mu, pred_next_latent_mu, p=2) # shape (B,B)
+            # else:
+            #     transition_dist = self.metric_func(pred_next_latent_mu, pred_next_latent_mu)
  
-        return r_dist + self.discount * transition_dist
+            return r_dist + self.discount * transition_dist
     
-    def metric_func(self, x, y):
-        if self.rap_structural_distance == 'l2':
-            dist = torch.cdist(x, y, p=2)
-        elif self.rap_structural_distance == 'l1':
-            dist = torch.cdist(x, y, p=1)
-        elif self.rap_structural_distance == 'mico_angular':
-            beta = 1e-6 #1e-5 # #0.1
-            base_distances = self._cosine_distance(x, y)
-            # print("base_distances", base_distances)
-            norm_average = (x.pow(2.).sum(dim=-1, keepdim=True)
-            # norm_average = 0.5 * (x.pow(2.).sum(dim=-1, keepdim=True) 
-                + y.pow(2.).sum(dim=-1, keepdim=True))
-            dist = norm_average + (beta * base_distances)
-        elif self.rap_structural_distance == 'x^2+y^2-xy':
-            raise NotImplementedError
-            # # beta = 1.0 # 0 < beta < 2
-            # k = 0.1 # 0 < k < 2
-            # base_distances = (x * y).sum(dim=-1, keepdim=True)
-            # # print("base_distances", base_distances)
-            # norm_average = (x.pow(2.).sum(dim=-1, keepdim=True) 
-            #     + y.pow(2.).sum(dim=-1, keepdim=True))
-            # # dist = norm_average - (2. - beta) * base_distances
-            # dist = norm_average - k * base_distances
-            # # dist = dist.sqrt()
-        else:
-            raise NotImplementedError
+    # def metric_func(self, x, y):
+    #     # if self.rap_structural_distance == 'l2':
+    #     dist = torch.cdist(x, y, p=2)
+        # elif self.rap_structural_distance == 'l1':
+        #     dist = torch.cdist(x, y, p=1)
+        # elif self.rap_structural_distance == 'mico_angular':
+        #     beta = 1e-6 #1e-5 # #0.1
+        #     base_distances = self._cosine_distance(x, y)
+        #     # print("base_distances", base_distances)
+        #     norm_average = (x.pow(2.).sum(dim=-1, keepdim=True)
+        #     # norm_average = 0.5 * (x.pow(2.).sum(dim=-1, keepdim=True) 
+        #         + y.pow(2.).sum(dim=-1, keepdim=True))
+        #     dist = norm_average + (beta * base_distances)
+        # elif self.rap_structural_distance == 'x^2+y^2-xy':
+        #     raise NotImplementedError
+        #     # # beta = 1.0 # 0 < beta < 2
+        #     # k = 0.1 # 0 < k < 2
+        #     # base_distances = (x * y).sum(dim=-1, keepdim=True)
+        #     # # print("base_distances", base_distances)
+        #     # norm_average = (x.pow(2.).sum(dim=-1, keepdim=True) 
+        #     #     + y.pow(2.).sum(dim=-1, keepdim=True))
+        #     # # dist = norm_average - (2. - beta) * base_distances
+        #     # dist = norm_average - k * base_distances
+        #     # # dist = dist.sqrt()
+        # else:
+        #     raise NotImplementedError
         return dist
 
 
@@ -397,10 +400,12 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
         return loss, loss_dict
 
 
-    def _cosine_distance(self, x, y, epsilon=1e-8):
+    def _cosine_distance(self, x, y):
+        """
+        Pair-wise cosine distances
+        """
         #TODO: Replace scipy's consine similarity with torch functions
         cos_theta = pairwise_consine_similarity(x.detach().cpu().numpy(), y.detach().cpu().numpy())
         cos_theta = torch.from_numpy(cos_theta).to(x.device)
-        tolerance = torch.ones_like(cos_theta)*epsilon# tolerance; to prevent sqrt(0)
-        sin_theta = torch.sqrt(torch.maximum(1 - cos_theta.pow(2), tolerance)) # sinx = sqrt(1-cos(x)^2)
+        sin_theta = self._sqrt(1. - cos_theta.pow(2.)) # sinx = sqrt(1-cos(x)^2)
         return torch.atan2(sin_theta, cos_theta) # theta = arctan(sin/cos)

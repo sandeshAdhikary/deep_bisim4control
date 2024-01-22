@@ -8,6 +8,7 @@ overrides:
     rap_square_target: True
     encoder_type: pixel_l2
     decoder_type: pixel_l2
+    epsilon: 1e-7
   trainer:
     env:
       encoder_type: pixel_l2
