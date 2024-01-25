@@ -87,7 +87,8 @@ def make_agent(obs_shape, action_shape, args, device):
         elif args.encoder_mode == 'neural_ef':
             agent_kwargs.update({
                 'normalize_kernel': args.normalize_kernel,
-                'distance_type': 'bisim'
+                'distance_type': 'bisim',
+                'normalization_mode': args.normalization_mode
                 })
             agent = NeuralEFBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'neural_ef_mico':
@@ -103,7 +104,8 @@ def make_agent(obs_shape, action_shape, args, device):
             agent_kwargs.update({'normalize_kernel': args.normalize_kernel, 
                                  'rew_max': args.rew_max, 
                                  'rew_min': args.rew_min,
-                                 'kernel_type': args.kernel_type
+                                 'kernel_type': args.kernel_type,
+                                 'normalization_mode': args.normalization_mode
                                  })
             agent = NeuralEFKSMEBisimAgent(**agent_kwargs)
         elif args.encoder_mode == 'rap':
@@ -121,7 +123,8 @@ def make_agent(obs_shape, action_shape, args, device):
                 'rap_square_target': args.rap_square_target,
                 'normalize_kernel': args.normalize_kernel,
                 'kernel_type': args.kernel_type,
-                'epsilon': args.epsilon
+                'epsilon': args.epsilon,
+                'normalization_mode': args.normalization_mode
             })
             agent = NeuralEFRAPBisimAgent(**agent_kwargs)
         else:

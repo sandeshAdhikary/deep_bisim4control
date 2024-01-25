@@ -257,6 +257,7 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
     def __init__(self, *args, **kwargs):
         self.normalize_kernel = kwargs.pop('normalize_kernel', True)
         self.kernel_type = kwargs.pop('kernel_type', 'gaussian')
+        self.normalization_mode = kwargs.pop('normalization_mode', 'symmetric')
         super().__init__(*args, **kwargs)
 
     def update_encoder(self, obs, action, reward, L=None, step=None, next_obs=None):
@@ -272,9 +273,15 @@ class NeuralEFRAPBisimAgent(RAPBisimAgent):
             kernel = self._kernel(distances, kernel_bandwidth='auto')
 
             if self.normalize_kernel:
-                D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
-                #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
-                kernel = D_sqrt @ kernel @ D_sqrt
+                if self.normalization_mode == 'symmetric':
+                    D_sqrt = torch.diag(torch.sum(kernel, dim=1)**(-0.5))
+                    #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+                    kernel = D_sqrt @ kernel @ D_sqrt
+                elif self.normalization_mode == 'random_walk':
+                    D_inv = torch.diag(torch.sum(kernel, dim=1)**(-1))
+                    kernel= D_inv @ kernel
+                else:
+                    raise ValueError(f'Normalization mode {self.normalization_mode} not recognized')
 
         loss, loss_dict = self._spectral_loss(kernel, h)
         # Add reward_decoder_loss

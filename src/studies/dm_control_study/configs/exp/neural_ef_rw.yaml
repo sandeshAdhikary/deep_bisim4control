@@ -1,0 +1,19 @@
+name: NeuralEFRandomWalk
+exp_mode: ???
+overrides:
+  model:
+    encoder_mode: neural_ef
+    encoder_type: pixel_l2
+    decoder_type: pixel_l2
+    normalization_mode: random_walk
+  trainer:
+    env:
+      encoder_type: pixel_l2
+    eval_env:
+      encoder_type: pixel_l2
+sweeper:
+  name: neural_ef_rw
+  num_runs: 1
+  parameters:
+    trainer:
+      seed: {values: [1, 2, 3]}

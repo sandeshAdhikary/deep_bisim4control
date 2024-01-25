@@ -1,19 +1,19 @@
-name: NeuralEFKSME_Regularized
+name: NeuralEFKSMERandomWalk
 exp_mode: ???
 overrides:
   model:
     encoder_mode: neural_ef_ksme
     encoder_type: pixel_l2
     decoder_type: pixel_l2
-    trunk_regularization: true
+    normalization_mode: random_walk
   trainer:
     env:
       encoder_type: pixel_l2
     eval_env:
       encoder_type: pixel_l2
 sweeper:
-  name: neural_ef_ksme_regularized
-  num_runs: 3
+  name: neural_ef_ksme_rw
+  num_runs: 1
   parameters:
-    model:
-      trunk_regularization_coeff: {values: [1.0, 0.1, 0.01]}
+    trainer:
+      seed: {values: [1, 2, 3]}

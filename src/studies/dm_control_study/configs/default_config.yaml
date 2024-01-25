@@ -177,6 +177,7 @@ model:
   rap_reward_dist: False
   rap_square_target: False
   epsilon: 1e-9
+  normalization_mode: symmetric
 logger:
   project: ${..project.name}
   module_path: trainer.logger.Logger

@@ -53,6 +53,7 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
     def __init__(self, *args, **kwargs):
         self.normalize_kernel = kwargs.pop('normalize_kernel', False)
         self.kernel_type = kwargs.pop('kernel_type', 'gaussian')
+        self.normalization_mode = kwargs.pop('normalization_mode', 'symmetric')
         super().__init__(*args, **kwargs)
 
 
@@ -78,10 +79,18 @@ class NeuralEFKSMEBisimAgent(KSMEBisimAgent):
             kernel = reward_sim + self.discount*transition_sim
 
             if self.normalize_kernel:
-                D_sqrt = (torch.sum(kernel, dim=1) + 1e-8)**(-0.5) # Small epsilon noise to prevent infs
-                D_sqrt = torch.diag(D_sqrt)
-                #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
-                kernel = D_sqrt @ kernel @ D_sqrt
+                if self.normalization_mode == 'symmetric':
+                    D_sqrt = (torch.sum(kernel, dim=1) + 1e-8)**(-0.5) # Small epsilon noise to prevent infs
+                    D_sqrt = torch.diag(D_sqrt)
+                    #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+                    kernel = D_sqrt @ kernel @ D_sqrt
+                elif self.normalization_mode == 'random_walk':
+                    D_inv = (torch.sum(kernel, dim=1) + 1e-8)**(-1) # Small epsilon noise to prevent infs
+                    D_inv = torch.diag(D_inv)
+                    kernel = D_inv @ kernel
+                else:
+                    raise ValueError(f'Normalization mode {self.normalization_mode} not recognized')
+
 
         loss, loss_dict = self._spectral_loss(kernel, h)
 

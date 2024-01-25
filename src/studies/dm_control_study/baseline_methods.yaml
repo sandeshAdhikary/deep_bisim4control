@@ -27,7 +27,7 @@ rap:
     batch_size: 128
     lr: 0.0005
 ours:
-    replay_buffer_capacity: 1_000_000
+    replay_buffer_capacity: 500_000
     num_train_steps: 1_000_000
     encoder_feature_dim: 50
     hidden_dim: 256

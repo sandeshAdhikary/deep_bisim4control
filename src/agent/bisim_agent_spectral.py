@@ -21,6 +21,7 @@ class SpectralBisimAgent(BisimAgent):
         self.encoder_normalize_loss = encoder_normalize_loss
         self.encoder_ortho_loss_reg = encoder_ortho_loss_reg
         self.normalize_kernel = normalize_kernel
+        self.normalization_mode = kwargs.pop('normalization_mode', 'symmetric')
         super().__init__(obs_shape,
                          action_shape,
                          device,
@@ -41,9 +42,15 @@ class SpectralBisimAgent(BisimAgent):
             W = self._weights(distances, kernel_bandwidth=self.encoder_kernel_bandwidth)
 
             if self.normalize_kernel:
-                D_sqrt = torch.diag(torch.sum(W, dim=1)**(-0.5))
-                #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
-                W = D_sqrt @ W @ D_sqrt
+                if self.normalization_mode == 'symmetric':
+                    D_sqrt = torch.diag(torch.sum(W, dim=1)**(-0.5))
+                    #TODO: Make faster. Shouldn't waste time multiplying with diagonal matrix
+                    W = D_sqrt @ W @ D_sqrt
+                elif self.normalization_mode == 'random_walk':
+                    D_inv = torch.diag(torch.sum(W, dim=1)**(-1))
+                    W = D_inv @ W
+                else:
+                    raise ValueError(f'Normalization mode {self.normalization_mode} not recognized')
 
         loss, loss_dict = self._spectral_loss(W, h)
         

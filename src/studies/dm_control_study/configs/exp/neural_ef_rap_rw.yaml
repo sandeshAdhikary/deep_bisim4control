@@ -1,18 +1,22 @@
-name: NeuralEFKSME_InnerProduct
+name: NeuralEF_RAP_RandomWalk
 exp_mode: ???
 overrides:
   model:
-    encoder_mode: neural_ef_ksme
+    encoder_mode: neural_ef_rap
+    rap_structural_distance: mico_angular
+    rap_reward_dist: True
+    rap_square_target: True
     encoder_type: pixel_l2
     decoder_type: pixel_l2
-    kernel_type: inner_product
+    epsilon: 1e-7
+    normalization_mode: random_walk
   trainer:
     env:
       encoder_type: pixel_l2
     eval_env:
       encoder_type: pixel_l2
 sweeper:
-  name: neural_ef_ksme_inner_product_normalized
+  name: neural_ef_rap_rw
   num_runs: 1
   parameters:
     trainer:

@@ -159,7 +159,7 @@ def run_selector(study):
     builder.configure_column(field='run_id', width=100, header_name="Run")
     builder.configure_column(field='steps', width=100, header_name="Steps")
     builder.configure_column(field='tag', width=100, header_name="Tag", editable=True)
-    builder.configure_column(field='select', checkboxSelection=True, header_name="Select")
+    builder.configure_column(field='select', checkboxSelection=True, header_name="Select", headerCheckboxSelection=True)
 
     builder.configure_grid_options(groupDefaultExpanded=-1, rowSelection='multiple',)
     gridOptions = builder.build()
@@ -441,131 +441,131 @@ def plot_rliable_metrics(data, storage, key_prefix='rliable'):
         all_data[sweep] = np.array(sweep_data)
         
 
-    # st.markdown('## Aggregate Scores')    
-    # agg_func_names = ['Median', 'IQM', 'Mean', 'OptGap']
-    # aggregate_func = lambda x: np.array([
-    # rliable_metrics.aggregate_median(x),
-    # rliable_metrics.aggregate_iqm(x),
-    # rliable_metrics.aggregate_mean(x),
-    # rliable_metrics.aggregate_optimality_gap(x)])
+    st.markdown('## Aggregate Scores')    
+    agg_func_names = ['Median', 'IQM', 'Mean', 'OptGap']
+    aggregate_func = lambda x: np.array([
+    rliable_metrics.aggregate_median(x),
+    rliable_metrics.aggregate_iqm(x),
+    rliable_metrics.aggregate_mean(x),
+    rliable_metrics.aggregate_optimality_gap(x)])
     
-    # aggregate_scores, aggregate_score_cis = rly.get_interval_estimates(all_data, aggregate_func, 
-    #                                                                    reps=n_reps)
+    aggregate_scores, aggregate_score_cis = rly.get_interval_estimates(all_data, aggregate_func, 
+                                                                       reps=n_reps)
 
-    # data = [[key, *aggregate_scores[key], *aggregate_score_cis[key][0], *aggregate_score_cis[key][1]] for key in aggregate_scores.keys()]
-    # data = pd.DataFrame(data,
-    #                       columns=['algorithm', 
-    #                              *[f'{x}_agg' for x in agg_func_names],
-    #                              *[f'{x}_lower' for x in agg_func_names],
-    #                              *[f'{x}_upper' for x in agg_func_names]])
+    data = [[key, *aggregate_scores[key], *aggregate_score_cis[key][0], *aggregate_score_cis[key][1]] for key in aggregate_scores.keys()]
+    data = pd.DataFrame(data,
+                          columns=['algorithm', 
+                                 *[f'{x}_agg' for x in agg_func_names],
+                                 *[f'{x}_lower' for x in agg_func_names],
+                                 *[f'{x}_upper' for x in agg_func_names]])
 
-    # algorithm_names = list(aggregate_scores.keys())
-    # colors = COLORS['tableau20'][:len(algorithm_names)]
+    algorithm_names = list(aggregate_scores.keys())
+    colors = COLORS['tableau20'][:len(algorithm_names)]
 
-    # # Set height and width
-    # chart_height = st.number_input(label='Chart Height',
-    #                                 value=500, min_value=0, 
-    #                                 max_value=1000, key=f'chart_height_{key_prefix}')
-    # chart_width = st.number_input(label='Chart Width',
-    #                                 value=100, min_value=0, 
-    #                                 max_value=1000, key=f'chart_width_{key_prefix}')
+    # Set height and width
+    chart_height = st.number_input(label='Chart Height',
+                                    value=500, min_value=0, 
+                                    max_value=1000, key=f'chart_height_{key_prefix}')
+    chart_width = st.number_input(label='Chart Width',
+                                    value=100, min_value=0, 
+                                    max_value=1000, key=f'chart_width_{key_prefix}')
 
 
-    # # Legend with color picker
-    # for idg, group in enumerate(algorithm_names):
-    #     cols = st.columns([0.05, 0.95])
-    #     colors[idg] = cols[0].color_picker(label='', value=colors[idg], 
-    #                                        key=f'color_picker_{group}_{key_prefix}')
-    #     cols[1].text_input("", value=group, key=f'group_name_{group}_{key_prefix}')
+    # Legend with color picker
+    for idg, group in enumerate(algorithm_names):
+        cols = st.columns([0.05, 0.95])
+        colors[idg] = cols[0].color_picker(label='', value=colors[idg], 
+                                           key=f'color_picker_{group}_{key_prefix}')
+        cols[1].text_input("", value=group, key=f'group_name_{group}_{key_prefix}')
 
-    # charts = []
-    # for ida, agg_func_name in enumerate(agg_func_names):
-    #     # Bar chart
-    #     chart = alt.Chart(data, height=chart_height, width=chart_width).mark_bar().encode(
-    #         y = alt.Y(f'{agg_func_name}_lower:Q', title=None, 
-    #                   scale=alt.Scale(domain=[0.0, 1.0]), 
-    #                   axis=alt.Axis(labels=True, tickCount=10)),
-    #         x=alt.Y('algorithm:N', title=agg_func_name, axis=alt.Axis(labels=False, ticks=False)),
-    #         y2= f'{agg_func_name}_upper:Q',
-    #         color=alt.Color('algorithm:N', legend=None, scale=alt.Scale(domain=algorithm_names, range=colors)),
-    #     )
-    #     # Line for aggregate score
-    #     agg_chart = alt.Chart(data).mark_point(color='black', shape='stroke').encode(
-    #         x=alt.Y('algorithm:N', title=agg_func_name, axis=alt.Axis(labels=False, ticks=False)),
-    #         y=alt.Y(f'{agg_func_name}_agg:Q', title=None),
-    #     )
-    #     chart = chart + agg_chart
+    charts = []
+    for ida, agg_func_name in enumerate(agg_func_names):
+        # Bar chart
+        chart = alt.Chart(data, height=chart_height, width=chart_width).mark_bar().encode(
+            y = alt.Y(f'{agg_func_name}_lower:Q', title=None, 
+                      scale=alt.Scale(domain=[0.0, 1.0]), 
+                      axis=alt.Axis(labels=True, tickCount=10)),
+            x=alt.Y('algorithm:N', title=agg_func_name, axis=alt.Axis(labels=False, ticks=False)),
+            y2= f'{agg_func_name}_upper:Q',
+            color=alt.Color('algorithm:N', legend=None, scale=alt.Scale(domain=algorithm_names, range=colors)),
+        )
+        # Line for aggregate score
+        agg_chart = alt.Chart(data).mark_point(color='black', shape='stroke').encode(
+            x=alt.Y('algorithm:N', title=agg_func_name, axis=alt.Axis(labels=False, ticks=False)),
+            y=alt.Y(f'{agg_func_name}_agg:Q', title=None),
+        )
+        chart = chart + agg_chart
 
-    #     charts.append(chart)
-    # chart = alt.hconcat(*charts, spacing=50
-    #                     ).resolve_scale(y='shared'
-    #                     )
+        charts.append(chart)
+    chart = alt.hconcat(*charts, spacing=50
+                        ).resolve_scale(y='shared'
+                        )
 
-    # st.altair_chart(chart, use_container_width=False)
+    st.altair_chart(chart, use_container_width=False)
 
-    # st.markdown('## Performance Profiles') 
-    # # # Performance Profiles
-    # perf_thresholds = np.linspace(0.0, 1.0, 50)
-    # perf_profiles, perf_profiles_cis = rly.create_performance_profile(all_data, perf_thresholds)
+    st.markdown('## Performance Profiles') 
+    # # Performance Profiles
+    perf_thresholds = np.linspace(0.0, 1.0, 50)
+    perf_profiles, perf_profiles_cis = rly.create_performance_profile(all_data, perf_thresholds)
 
-    # algorithm_names = list(perf_profiles.keys())
-    # df = pd.DataFrame()
-    # for algo in algorithm_names:
-    #     algo_df = pd.DataFrame(
-    #         {   
-    #             'algorithm': algo,
-    #             'threshold': perf_thresholds,
-    #             'fraction': perf_profiles[algo],
-    #             'lower': perf_profiles_cis[algo][0],
-    #             'upper': perf_profiles_cis[algo][1],
-    #         }
-    #     )
-    #     df = pd.concat([df, algo_df])
+    algorithm_names = list(perf_profiles.keys())
+    df = pd.DataFrame()
+    for algo in algorithm_names:
+        algo_df = pd.DataFrame(
+            {   
+                'algorithm': algo,
+                'threshold': perf_thresholds,
+                'fraction': perf_profiles[algo],
+                'lower': perf_profiles_cis[algo][0],
+                'upper': perf_profiles_cis[algo][1],
+            }
+        )
+        df = pd.concat([df, algo_df])
     
 
 
-    # # Set height and width
-    # chart_height = st.number_input(label='Chart Height',
-    #                                 value=500, min_value=0, 
-    #                                 max_value=1000, key=f'chart_height_{key_prefix}_perf_profile')
-    # chart_width = st.number_input(label='Chart Width',
-    #                                 value=100, min_value=0, 
-    #                                 max_value=1000, key=f'chart_width_{key_prefix}_perf_profile')
+    # Set height and width
+    chart_height = st.number_input(label='Chart Height',
+                                    value=500, min_value=0, 
+                                    max_value=1000, key=f'chart_height_{key_prefix}_perf_profile')
+    chart_width = st.number_input(label='Chart Width',
+                                    value=100, min_value=0, 
+                                    max_value=1000, key=f'chart_width_{key_prefix}_perf_profile')
 
-    # label_font_size = st.number_input(label='Label Font Size', 
-    #                                   value=30, min_value=0, 
-    #                                   max_value=50, key=f'label_font_size_{key_prefix}_perf_profile')
-    # title_font_size = st.number_input(label='Title Font Size',
-    #                                 value=20, min_value=0, 
-    #                                 max_value=50, key=f'title_font_size_{key_prefix}_perf_profile')
+    label_font_size = st.number_input(label='Label Font Size', 
+                                      value=30, min_value=0, 
+                                      max_value=50, key=f'label_font_size_{key_prefix}_perf_profile')
+    title_font_size = st.number_input(label='Title Font Size',
+                                    value=20, min_value=0, 
+                                    max_value=50, key=f'title_font_size_{key_prefix}_perf_profile')
 
 
-    # # Legend with color picker
-    # colors = COLORS['tableau20'][:len(algorithm_names)]
-    # for idg, group in enumerate(algorithm_names):
-    #     cols = st.columns([0.05, 0.95])
-    #     colors[idg] = cols[0].color_picker(label='', value=colors[idg], 
-    #                                        key=f'color_picker_{group}_{key_prefix}_perf_profile')
-    #     cols[1].text_input("", value=group, key=f'group_name_{group}_{key_prefix}_perf_profile')
+    # Legend with color picker
+    colors = COLORS['tableau20'][:len(algorithm_names)]
+    for idg, group in enumerate(algorithm_names):
+        cols = st.columns([0.05, 0.95])
+        colors[idg] = cols[0].color_picker(label='', value=colors[idg], 
+                                           key=f'color_picker_{group}_{key_prefix}_perf_profile')
+        cols[1].text_input("", value=group, key=f'group_name_{group}_{key_prefix}_perf_profile')
 
-    # chart = alt.Chart(df, height=chart_height, width=chart_width).mark_line().encode(
-    #     x=alt.X('threshold:Q', title='Normalized Score (\u03c4)'),
-    #     y=alt.Y('fraction:Q', title='Fraction of runs with score > \u03c4'),
-    #     color=alt.Color('algorithm:N', legend=None, scale=alt.Scale(domain=algorithm_names, range=colors)),
-    # )
+    chart = alt.Chart(df, height=chart_height, width=chart_width).mark_line().encode(
+        x=alt.X('threshold:Q', title='Normalized Score (\u03c4)'),
+        y=alt.Y('fraction:Q', title='Fraction of runs with score > \u03c4'),
+        color=alt.Color('algorithm:N', legend=None, scale=alt.Scale(domain=algorithm_names, range=colors)),
+    )
 
-    # chart_err = alt.Chart(df).mark_area(opacity=0.2).encode(
-    #     x=alt.X('threshold:Q'),
-    #     y=alt.Y('lower:Q'),
-    #     y2=alt.Y2('upper:Q'),
-    #     color=alt.Color('algorithm:N', legend=None, scale=alt.Scale(domain=algorithm_names, range=colors)),
-    # )
-    # chart = (chart + chart_err).configure_axis(
-    # labelFontSize=label_font_size,
-    # titleFontSize=title_font_size
-    # )
+    chart_err = alt.Chart(df).mark_area(opacity=0.2).encode(
+        x=alt.X('threshold:Q'),
+        y=alt.Y('lower:Q'),
+        y2=alt.Y2('upper:Q'),
+        color=alt.Color('algorithm:N', legend=None, scale=alt.Scale(domain=algorithm_names, range=colors)),
+    )
+    chart = (chart + chart_err).configure_axis(
+    labelFontSize=label_font_size,
+    titleFontSize=title_font_size
+    )
 
-    # st.altair_chart(chart)
+    st.altair_chart(chart)
 
     # # Probability of improvement
     sweep_pairs = list(permutations(sweeps, 2))
@@ -592,10 +592,10 @@ def plot_rliable_metrics(data, storage, key_prefix='rliable'):
 
     chart_height = st.number_input(label='Chart Height',
                                     value=500, min_value=0, 
-                                    max_value=1000, key=f'chart_height_{key_prefix}')
+                                    max_value=1000, key=f'chart_height_agg_score_{key_prefix}')
     chart_width = st.number_input(label='Chart Width',
                                     value=100, min_value=0, 
-                                    max_value=1000, key=f'chart_width_{key_prefix}')
+                                    max_value=1000, key=f'chart_width_agg_score_{key_prefix}')
 
     algorithm_names = list(df['algo_x'].unique())
     colors = {x:y for x,y in zip(algorithm_names, COLORS['tableau20'][:len(algorithm_names)])}
@@ -603,8 +603,8 @@ def plot_rliable_metrics(data, storage, key_prefix='rliable'):
     for idg, group in enumerate(algorithm_names):
         cols = st.columns([0.05, 0.95])
         colors[group] = cols[0].color_picker(label='', value=colors[group], 
-                                           key=f'color_picker_{group}_{key_prefix}')
-        cols[1].text_input("", value=group, key=f'group_name_{group}_{key_prefix}')
+                                           key=f'color_picker_agg_score_{group}_{key_prefix}')
+        cols[1].text_input("", value=group, key=f'group_name_agg_score_{group}_{key_prefix}')
 
 
     df = df.sort_values(by=['algo_x'])
