@@ -1,9 +1,0 @@
-name: cartpole_state
-desc: |
-  Carttpole swingup.
-overrides:
-  trainer:
-    env:
-      domain_name: cartpole
-      task_name: swingup
-      img_source: null

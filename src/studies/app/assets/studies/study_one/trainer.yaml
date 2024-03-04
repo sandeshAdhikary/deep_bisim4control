@@ -1,4 +1,0 @@
-name: SupervisedTrainer
-optimizer:
-  lr: 0.001
-  type: adam

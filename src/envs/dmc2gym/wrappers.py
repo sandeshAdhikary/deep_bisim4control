@@ -7,7 +7,7 @@ import numpy as np
 from dm_env._environment import TimeStep
 
 from src.envs.dmc2gym import natural_imgsource
-from distracting_control import suite as distracted_dm_suite
+# from distracting_control import suite as distracted_dm_suite
 
 
 def _spec_to_box(spec):

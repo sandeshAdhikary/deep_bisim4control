@@ -1,5 +1,0 @@
-studies:
-- name: DMControlStudy
-  path: /project/src/studies/dm_control_study/configs/default_config.yaml
-- name: Distance Invariance
-  path: /project/src/studies/distance_invariance_study/configs/default_config.yaml

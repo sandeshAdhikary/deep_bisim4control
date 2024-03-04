@@ -45,3 +45,5 @@ dependencies:
     - mo_gymnasium
     - scikit-learn
     - moviepy
+    - nvitop
+    - hydra-core

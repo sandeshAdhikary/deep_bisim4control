@@ -1,6 +1,0 @@
-name: SupervisedModel
-type: Regression
-hidden_dim: 32
-encoder:
-    hidden_dim: 128
-
